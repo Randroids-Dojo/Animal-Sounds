@@ -150,6 +150,8 @@ Test with the kiosk locked:
 - [ ] In-app: quick-tap the ✕ — nothing; hold it ~1.2 s — back to the grid.
 - [ ] Hold one finger on the screen, then tap several different animal tiles
       with another finger — each new tile tap must still open its video.
+- [ ] Start an upward swipe on an animal tile — the grid must scroll instead
+      of opening that tile.
 - [ ] Verify that repeated taps on tiles do not open FreeKiosk settings; only
       the hidden fixed-corner gesture plus the PIN should do so.
 

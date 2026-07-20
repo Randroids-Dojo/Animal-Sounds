@@ -3,6 +3,7 @@
 // Hold duration for the parent escape hatch (✕). Applied to the button's
 // CSS transition in init() so the visual fill always matches the trigger.
 const HOLD_MS = 1200;
+const TAP_SLOP_PX = 12;
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
@@ -61,12 +62,30 @@ function renderGrid() {
 
     tile.append(img, label);
     // Touch browsers can withhold the synthetic click while another contact
-    // (a hand or clothing) is still on the screen. Start touch playback from
-    // the tile's own pointer instead; click remains the keyboard/mouse path.
+    // (a hand or clothing) is still on the screen. Resolve a stationary touch
+    // from this tile's own pointer, but never cancel it: canceling pointerdown
+    // prevents the browser from turning a drag on a tile into a page scroll.
+    const touches = new Map();
     tile.addEventListener("pointerdown", (event) => {
       if (event.pointerType !== "touch") return;
-      event.preventDefault();
-      play(animal);
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY, moved: false });
+      tile.setPointerCapture(event.pointerId);
+    });
+    tile.addEventListener("pointermove", (event) => {
+      const touch = touches.get(event.pointerId);
+      if (!touch) return;
+      if (Math.hypot(event.clientX - touch.x, event.clientY - touch.y) > TAP_SLOP_PX) {
+        touch.moved = true;
+      }
+    });
+    tile.addEventListener("pointerup", (event) => {
+      const touch = touches.get(event.pointerId);
+      touches.delete(event.pointerId);
+      if (tile.hasPointerCapture(event.pointerId)) tile.releasePointerCapture(event.pointerId);
+      if (touch && !touch.moved) play(animal);
+    });
+    tile.addEventListener("pointercancel", (event) => {
+      touches.delete(event.pointerId);
     });
     tile.addEventListener("click", () => play(animal));
     return tile;
