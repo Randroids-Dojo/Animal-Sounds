@@ -103,13 +103,20 @@ factory-reset the tablet.
 
 ### 4. Configure the kiosk
 
-In the kiosk app's settings:
+As configured on Randy's tablet (July 2026), in FreeKiosk's settings
+(GENERAL and SECURITY tabs):
 
-- **Start URL**: your Vercel production URL for this app.
-- Enable **kiosk / lock task mode** and set an **exit PIN** only you know.
-- Disable: status bar, home/recents buttons, volume buttons, pull-down,
-  screensaver, motion detection.
-- Enable autostart on boot (usually on by default).
+- **Start URL**: `https://animal-sounds-beta.vercel.app` (GENERAL).
+- **PIN**: numeric PIN field on GENERAL (kept at default `1234`).
+- SECURITY: **Enable Lock Mode** ON, **Launch on Boot** ON.
+- **Return to Settings**: Tap Anywhere, **10 taps within 3.0 s** (or press a
+  volume button 10 times rapidly), then the PIN. Raised from the default 5
+  taps so a toddler pounding one tile can't trigger it.
+- Left OFF (deliberately): Block Power Menu and Show System Info Bar — the
+  app warns both interact with audio muting on Samsung/OneUI; audio
+  confirmed working with this combination.
+- "Appear on top" permission granted via
+  `adb shell appops set com.freekiosk SYSTEM_ALERT_WINDOW allow`.
 
 ### 5. Buy the license (Plan B only)
 
@@ -139,8 +146,8 @@ Test with the kiosk locked:
 - [ ] Power button tap — screen sleeps; tapping again wakes straight into
       the app (no lock screen).
 - [ ] Long-press power — Samsung may still show the Power off menu; if the
-      tablet gets powered off, the kiosk auto-relaunches on boot. Annoying,
-      not an escape.
+      tablet gets powered off, the kiosk auto-relaunches on boot (verified:
+      after a reboot the tablet comes back locked into the app).
 - [ ] In-app: tap the video repeatedly — it must not pause or navigate.
 - [ ] In-app: quick-tap the ✕ — nothing; hold it ~1.5 s — back to the grid.
 
