@@ -14,6 +14,9 @@ The videos come from this YouTube playlist:
 
 - Plain static site — no framework, no build step. Deployed to Vercel.
 - `animals.json` maps each tile (name + image) to a YouTube video ID.
+- Tapping a tile first plays a recording of the animal's name (files in
+  `audio/`, generated with `randysay --text "Horse" -o horse.mp3`; filenames
+  are the lowercased name with spaces as dashes).
 - Playback uses the official YouTube IFrame API. An invisible "tap shield"
   covers the video so little fingers can't pause it, open related videos, or
   click through to YouTube.

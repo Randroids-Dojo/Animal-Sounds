@@ -54,7 +54,21 @@ function renderGrid() {
   }
 }
 
+// Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3.
+let nameAudio = null;
+
 function speak(name) {
+  const slug = name.toLowerCase().replace(/\s+/g, "-");
+  try {
+    if (nameAudio) nameAudio.pause();
+    nameAudio = new Audio(`audio/${slug}.mp3`);
+    nameAudio.play().catch(() => speakFallback(name));
+  } catch (_) {
+    speakFallback(name);
+  }
+}
+
+function speakFallback(name) {
   try {
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(name);
