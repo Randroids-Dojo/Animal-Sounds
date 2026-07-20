@@ -22,32 +22,25 @@ The videos come from this YouTube playlist:
   click through to YouTube.
 - The video auto-returns to the grid when it ends, errors, or never starts
   (watchdog timeout).
-- Parent escape hatch: **hold the ✕ in the top-right corner for about 1.5
-  seconds** while a video is playing. Quick taps do nothing.
+- Parent escape hatch: **hold the ✕ in the top-right corner for about 1.2
+  seconds** (`HOLD_MS` in app.js) while a video is playing. Quick taps do
+  nothing.
 - Ad-free playback relies on a YouTube Premium account being signed in once
   in the kiosk browser (see step 6 below). Embedded players honor the
   viewer's Premium session.
 
 ## Editing the animals
 
-**Adding a new animal? Follow the step-by-step guide in
-[ADDING_ANIMALS.md](ADDING_ANIMALS.md).**
-
-Edit `animals.json`. Each entry:
+The tiles are defined in `animals.json`; each entry looks like
 
 ```json
 { "name": "Horse", "videoId": "erYhEM4qLpU", "image": "images/horse.svg" }
 ```
 
-- `videoId` is the part after `v=` or `/shorts/` in a YouTube URL.
-- `image` is any SVG/PNG in `images/` — drop in a new file to change a tile.
-- Optional `"hue": 150` rotates the image's colors (used to differentiate
-  tiles that share the generic bird art).
-- Note: one playlist video (the "Gimmie kiss!" parakeet, `OevEJh1E5zk`) is
-  excluded because its owner disabled embedding. Any replacement video must
-  allow embedding.
-- `scripts/refresh-playlist.sh` lists the playlist's current videos so new
-  additions are easy to spot (requires `yt-dlp`).
+**The entry format, image/voice-clip pipeline, and deploy steps are all in
+[ADDING_ANIMALS.md](ADDING_ANIMALS.md)** — that's the canonical guide.
+`scripts/refresh-playlist.sh` diffs the playlist against `animals.json` and
+checks every animal has its voice clip.
 
 ## Tablet setup: full kiosk lockdown (Tab A7 Lite, Android 14)
 
@@ -152,7 +145,7 @@ Test with the kiosk locked:
       tablet gets powered off, the kiosk auto-relaunches on boot (verified:
       after a reboot the tablet comes back locked into the app).
 - [ ] In-app: tap the video repeatedly — it must not pause or navigate.
-- [ ] In-app: quick-tap the ✕ — nothing; hold it ~1.5 s — back to the grid.
+- [ ] In-app: quick-tap the ✕ — nothing; hold it ~1.2 s — back to the grid.
 
 ## Local development
 

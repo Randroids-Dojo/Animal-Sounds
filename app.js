@@ -1,5 +1,9 @@
 "use strict";
 
+// Hold duration for the parent escape hatch (✕). Applied to the button's
+// CSS transition in init() so the visual fill always matches the trigger.
+const HOLD_MS = 1200;
+
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
 
@@ -11,8 +15,10 @@ const loadingImg = document.getElementById("loading-img");
 const loadingName = document.getElementById("loading-name");
 const closeBtn = document.getElementById("close-btn");
 
+// One YT.Player for the app's lifetime: created lazily on the first tap,
+// then reused via loadVideoById — recreating it per tap costs seconds on
+// the tablet. "A video is open" is tracked by overlay.hidden alone.
 let player = null;
-let playing = false;
 let watchdog = null;
 
 // The IFrame API script calls this global when ready.
@@ -28,13 +34,18 @@ function loadYouTubeApi() {
 
 async function init() {
   loadYouTubeApi();
+  closeBtn.style.transitionDuration = HOLD_MS + "ms";
   const res = await fetch("animals.json");
   animals = await res.json();
   renderGrid();
 }
 
+function hueFilter(animal) {
+  return animal.hue ? `hue-rotate(${animal.hue}deg)` : "";
+}
+
 function renderGrid() {
-  for (const animal of animals) {
+  grid.append(...animals.map((animal) => {
     const tile = document.createElement("button");
     tile.className = "tile";
     tile.type = "button";
@@ -42,7 +53,7 @@ function renderGrid() {
     const img = document.createElement("img");
     img.src = animal.image;
     img.alt = "";
-    if (animal.hue) img.style.filter = `hue-rotate(${animal.hue}deg)`;
+    img.style.filter = hueFilter(animal);
 
     const label = document.createElement("span");
     label.className = "tile-name";
@@ -50,22 +61,26 @@ function renderGrid() {
 
     tile.append(img, label);
     tile.addEventListener("click", () => play(animal));
-    grid.appendChild(tile);
-  }
+    return tile;
+  }));
 }
 
-// Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3.
-let nameAudio = null;
+// Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3,
+// cached so repeat taps replay instantly.
+const voiceClips = new Map();
+let currentClip = null;
 
 function speak(name) {
   const slug = name.toLowerCase().replace(/\s+/g, "-");
-  try {
-    if (nameAudio) nameAudio.pause();
-    nameAudio = new Audio(`audio/${slug}.mp3`);
-    nameAudio.play().catch(() => speakFallback(name));
-  } catch (_) {
-    speakFallback(name);
+  let clip = voiceClips.get(slug);
+  if (!clip) {
+    clip = new Audio(`audio/${slug}.mp3`);
+    voiceClips.set(slug, clip);
   }
+  if (currentClip) currentClip.pause();
+  currentClip = clip;
+  clip.currentTime = 0;
+  clip.play()?.catch(() => speakFallback(name));
 }
 
 function speakFallback(name) {
@@ -80,11 +95,10 @@ function speakFallback(name) {
 }
 
 async function play(animal) {
-  if (playing) return;
-  playing = true;
+  if (!overlay.hidden) return;
 
   loadingImg.src = animal.image;
-  loadingImg.style.filter = animal.hue ? `hue-rotate(${animal.hue}deg)` : "";
+  loadingImg.style.filter = hueFilter(animal);
   loadingName.textContent = animal.name;
   loading.hidden = false;
   overlay.hidden = false;
@@ -96,7 +110,12 @@ async function play(animal) {
   armWatchdog(20000);
 
   await apiReady;
-  if (!playing) return; // closed while API was still loading
+  if (overlay.hidden) return; // closed while the API was still loading
+
+  if (player) {
+    player.loadVideoById(animal.videoId);
+    return;
+  }
 
   player = new YT.Player("yt-slot", {
     videoId: animal.videoId,
@@ -113,12 +132,17 @@ async function play(animal) {
       onReady: (e) => e.target.playVideo(),
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.PLAYING) {
+          if (overlay.hidden) {
+            // Closed before the first player finished initializing.
+            try { e.target.stopVideo(); } catch (_) {}
+            return;
+          }
           clearTimeout(watchdog);
           loading.hidden = true;
         } else if (e.data === YT.PlayerState.BUFFERING) {
           armWatchdog(30000); // making progress — allow a slow network more time
         } else if (e.data === YT.PlayerState.ENDED) {
-          closePlayer();
+          if (!overlay.hidden) closePlayer();
         }
       },
       onError: () => closePlayer(),
@@ -134,22 +158,12 @@ function armWatchdog(ms) {
 function closePlayer() {
   clearTimeout(watchdog);
   if (player) {
-    try { player.destroy(); } catch (_) { /* already gone */ }
-    player = null;
+    try { player.stopVideo(); } catch (_) { /* not ready yet */ }
   }
-  // YT.Player consumes the slot element; recreate it for next time.
-  let slot = document.getElementById("yt-slot");
-  if (slot) slot.remove();
-  slot = document.createElement("div");
-  slot.id = "yt-slot";
-  document.querySelector(".player-frame").appendChild(slot);
-
-  loading.hidden = true;
   overlay.hidden = true;
-  playing = false;
 }
 
-// Parent escape hatch: the ✕ only works when held for 1.2 seconds,
+// Parent escape hatch: the ✕ only works when held for HOLD_MS,
 // so stray toddler taps do nothing.
 let holdTimer = null;
 
@@ -159,7 +173,7 @@ function startHold(e) {
   holdTimer = setTimeout(() => {
     closeBtn.classList.remove("holding");
     closePlayer();
-  }, 1200);
+  }, HOLD_MS);
 }
 
 function cancelHold() {

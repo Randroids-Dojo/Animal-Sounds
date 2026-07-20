@@ -4,15 +4,13 @@
   "description": "Tap an animal to hear its sound",
   "start_url": ".",
   "display": "fullscreen",
-  "orientation": "any",
   "background_color": "#DFF1F7",
   "theme_color": "#DFF1F7",
   "icons": [
     {
       "src": "images/lion.svg",
       "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "type": "image/svg+xml"
     }
   ]
 }

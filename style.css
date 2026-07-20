@@ -1,14 +1,19 @@
 /* Animal Sounds — toddler tap-and-listen app.
-   Palette: "meadow morning"
-   sky      #DFF1F7  page background
-   cloud    #FFFFFF  tile base glow
-   butter   #FFE6A7  \
-   seafoam  #C9EDD3   \
-   blossom  #FFD7DB    > rotating tile pastels
-   lilac    #E3DCFA   /
-   peach    #FFDFC2  /
-   ink      #3B3560  text
-*/
+   Palette "meadow morning". --sky is also hard-coded in index.html's
+   theme-color meta and manifest.json — keep those in sync. */
+
+:root {
+  --sky: #DFF1F7;          /* page background */
+  --ink: #3B3560;          /* text */
+  --ink-shadow: rgba(59, 53, 96, 0.12);
+  --night: #141227;        /* player backdrop */
+  --cream: #FFF6DA;        /* text on night */
+  --butter: #FFE6A7;
+  --seafoam: #C9EDD3;
+  --blossom: #FFD7DB;
+  --lilac: #E3DCFA;
+  --peach: #FFDFC2;
+}
 
 @font-face {
   font-family: "Fredoka";
@@ -19,14 +24,10 @@
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  padding: 0;
-}
-
 body {
-  background: #DFF1F7;
-  color: #3B3560;
+  margin: 0;
+  background: var(--sky);
+  color: var(--ink);
   font-family: "Fredoka", ui-rounded, "Arial Rounded MT Bold", "Comic Sans MS", system-ui, sans-serif;
   -webkit-user-select: none;
   user-select: none;
@@ -50,7 +51,7 @@ body {
 
 /* ---------- Tile grid ---------- */
 
-.grid {
+#grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 14px;
@@ -58,7 +59,7 @@ body {
 }
 
 @media (min-width: 700px) {
-  .grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
+  #grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
 }
 
 .tile {
@@ -75,12 +76,12 @@ body {
   cursor: pointer;
   font-family: inherit;
   color: inherit;
-  box-shadow: 0 4px 0 rgba(59, 53, 96, 0.12);
+  box-shadow: 0 4px 0 var(--ink-shadow);
   transition: transform 120ms ease;
 }
 
 .tile:focus-visible {
-  outline: 4px solid #3B3560;
+  outline: 4px solid var(--ink);
   outline-offset: 3px;
 }
 
@@ -108,11 +109,11 @@ body {
   line-height: 1.1;
 }
 
-.tile:nth-child(5n + 1) { background: #FFE6A7; }
-.tile:nth-child(5n + 2) { background: #C9EDD3; }
-.tile:nth-child(5n + 3) { background: #FFD7DB; }
-.tile:nth-child(5n + 4) { background: #E3DCFA; }
-.tile:nth-child(5n + 5) { background: #FFDFC2; }
+.tile:nth-child(5n + 1) { background: var(--butter); }
+.tile:nth-child(5n + 2) { background: var(--seafoam); }
+.tile:nth-child(5n + 3) { background: var(--blossom); }
+.tile:nth-child(5n + 4) { background: var(--lilac); }
+.tile:nth-child(5n + 5) { background: var(--peach); }
 
 .credits {
   margin: 0;
@@ -124,17 +125,19 @@ body {
 
 /* ---------- Player overlay ---------- */
 
-.overlay {
+#overlay {
   position: fixed;
   inset: 0;
-  background: #141227;
+  background: var(--night);
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.overlay[hidden] { display: none; }
+/* These stay flex when visible, so the UA's [hidden] rule needs backup. */
+#overlay[hidden],
+#loading[hidden] { display: none; }
 
 .player-frame {
   height: min(100dvh, 177.8vw);
@@ -142,7 +145,7 @@ body {
   max-width: 100vw;
 }
 
-.player-frame iframe,
+/* The IFrame API replaces the #yt-slot div with an iframe of the same id. */
 #yt-slot {
   width: 100%;
   height: 100%;
@@ -150,19 +153,18 @@ body {
 }
 
 /* Invisible shield: swallows every toddler tap on the video */
-.shield {
+#shield {
   position: absolute;
   inset: 0;
   z-index: 11;
-  background: transparent;
 }
 
 /* Loading state: the tapped animal bounces while the video buffers */
-.loading {
+#loading {
   position: absolute;
   inset: 0;
   z-index: 12;
-  background: #141227;
+  background: var(--night);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -170,15 +172,13 @@ body {
   gap: 14px;
 }
 
-.loading[hidden] { display: none; }
-
-.loading-img {
+#loading-img {
   width: min(38vw, 260px);
   animation: bounce 900ms ease-in-out infinite;
 }
 
-.loading-name {
-  color: #FFF6DA;
+#loading-name {
+  color: var(--cream);
   font-size: clamp(1.6rem, 5vw, 2.6rem);
   font-weight: 600;
 }
@@ -188,8 +188,10 @@ body {
   50%      { transform: translateY(-16px) scale(1.04); }
 }
 
-/* Parent escape hatch: must be held down to trigger */
-.close-btn {
+/* Parent escape hatch: must be held down to trigger.
+   transition-duration is set from app.js (HOLD_MS) so the visual fill
+   always matches the hold time. */
+#close-btn {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -203,16 +205,17 @@ body {
   font-size: 1.1rem;
   font-family: inherit;
   cursor: pointer;
-  transition: transform 1.2s linear, background 1.2s linear;
+  transition-property: transform, background;
+  transition-timing-function: linear;
 }
 
-.close-btn.holding {
+#close-btn.holding {
   transform: scale(1.35);
   background: rgba(255, 255, 255, 0.55);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .tile:active { animation: none; }
-  .loading-img { animation: none; }
-  .close-btn { transition: none; }
+  #loading-img { animation: none; }
+  #close-btn { transition: none; }
 }

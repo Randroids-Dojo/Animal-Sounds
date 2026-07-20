@@ -7,7 +7,10 @@
   <meta name="description" content="Tap an animal to hear its sound">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="images/lion.svg" type="image/svg+xml">
+  <!-- --sky from style.css; also in manifest.json — keep in sync -->
   <meta name="theme-color" content="#DFF1F7">
+  <link rel="preload" href="animals.json" as="fetch" crossorigin>
+  <link rel="preload" href="fonts/fredoka.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preconnect" href="https://www.youtube.com">
   <link rel="preconnect" href="https://i.ytimg.com">
   <link rel="preconnect" href="https://www.google.com">
@@ -19,20 +22,20 @@
     <h1>Animal Sounds</h1>
   </header>
 
-  <main id="grid" class="grid" aria-label="Animals"></main>
+  <main id="grid" aria-label="Animals"></main>
 
   <p class="credits">Animal art: OpenMoji.org (CC BY-SA 4.0)</p>
 
-  <div id="overlay" class="overlay" hidden>
+  <div id="overlay" hidden>
     <div class="player-frame">
       <div id="yt-slot"></div>
     </div>
-    <div id="shield" class="shield" aria-hidden="true"></div>
-    <div id="loading" class="loading" hidden>
-      <img id="loading-img" class="loading-img" alt="">
-      <div id="loading-name" class="loading-name"></div>
+    <div id="shield" aria-hidden="true"></div>
+    <div id="loading" hidden>
+      <img id="loading-img" alt="">
+      <div id="loading-name"></div>
     </div>
-    <button id="close-btn" class="close-btn" aria-label="Hold to go back">✕</button>
+    <button id="close-btn" aria-label="Hold to go back">✕</button>
   </div>
 </body>
 </html>
