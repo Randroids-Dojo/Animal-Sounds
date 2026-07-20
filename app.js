@@ -60,6 +60,14 @@ function renderGrid() {
     label.textContent = animal.name;
 
     tile.append(img, label);
+    // Touch browsers can withhold the synthetic click while another contact
+    // (a hand or clothing) is still on the screen. Start touch playback from
+    // the tile's own pointer instead; click remains the keyboard/mouse path.
+    tile.addEventListener("pointerdown", (event) => {
+      if (event.pointerType !== "touch") return;
+      event.preventDefault();
+      play(animal);
+    });
     tile.addEventListener("click", () => play(animal));
     return tile;
   }));

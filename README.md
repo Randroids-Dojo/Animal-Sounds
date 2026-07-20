@@ -103,11 +103,13 @@ As configured on Randy's tablet (July 2026), in FreeKiosk's settings
 (GENERAL and SECURITY tabs):
 
 - **Start URL**: `https://animal-sounds-beta.vercel.app` (GENERAL).
-- **PIN**: numeric PIN field on GENERAL (kept at default `1234`).
+- **PIN**: set a unique six-digit PIN (do not leave the default `1234`).
 - SECURITY: **Enable Lock Mode** ON, **Launch on Boot** ON.
-- **Return to Settings**: Tap Anywhere, **10 taps within 3.0 s** (or press a
-  volume button 10 times rapidly), then the PIN. Raised from the default 5
-  taps so a toddler pounding one tile can't trigger it.
+- **Return to Settings**: use **Fixed Corner**, with the return indicator
+  hidden; keep the 10-taps-within-3-seconds requirement, then require the
+  PIN. Do not use **Tap Anywhere**: ordinary tile taps can satisfy it.
+- Disable the volume-button return shortcut unless it is specifically needed
+  for maintenance.
 - Left OFF (deliberately): Block Power Menu and Show System Info Bar — the
   app warns both interact with audio muting on Samsung/OneUI; audio
   confirmed working with this combination.
@@ -146,6 +148,10 @@ Test with the kiosk locked:
       after a reboot the tablet comes back locked into the app).
 - [ ] In-app: tap the video repeatedly — it must not pause or navigate.
 - [ ] In-app: quick-tap the ✕ — nothing; hold it ~1.2 s — back to the grid.
+- [ ] Hold one finger on the screen, then tap several different animal tiles
+      with another finger — each new tile tap must still open its video.
+- [ ] Verify that repeated taps on tiles do not open FreeKiosk settings; only
+      the hidden fixed-corner gesture plus the PIN should do so.
 
 ## Local development
 
