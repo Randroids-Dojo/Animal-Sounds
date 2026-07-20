@@ -30,6 +30,9 @@ The videos come from this YouTube playlist:
 
 ## Editing the animals
 
+**Adding a new animal? Follow the step-by-step guide in
+[ADDING_ANIMALS.md](ADDING_ANIMALS.md).**
+
 Edit `animals.json`. Each entry:
 
 ```json
