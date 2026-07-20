@@ -1,0 +1,218 @@
+/* Animal Sounds — toddler tap-and-listen app.
+   Palette: "meadow morning"
+   sky      #DFF1F7  page background
+   cloud    #FFFFFF  tile base glow
+   butter   #FFE6A7  \
+   seafoam  #C9EDD3   \
+   blossom  #FFD7DB    > rotating tile pastels
+   lilac    #E3DCFA   /
+   peach    #FFDFC2  /
+   ink      #3B3560  text
+*/
+
+@font-face {
+  font-family: "Fredoka";
+  src: url("fonts/fredoka.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #DFF1F7;
+  color: #3B3560;
+  font-family: "Fredoka", ui-rounded, "Arial Rounded MT Bold", "Comic Sans MS", system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  min-height: 100dvh;
+}
+
+.topbar {
+  padding: 10px 18px 2px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  opacity: 0.55;
+}
+
+/* ---------- Tile grid ---------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+  padding: 12px 14px 20px;
+}
+
+@media (min-width: 700px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
+}
+
+.tile {
+  appearance: none;
+  border: none;
+  border-radius: 28px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 8px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  box-shadow: 0 4px 0 rgba(59, 53, 96, 0.12);
+  transition: transform 120ms ease;
+}
+
+.tile:focus-visible {
+  outline: 4px solid #3B3560;
+  outline-offset: 3px;
+}
+
+.tile:active {
+  animation: boing 240ms ease;
+  transform: scale(0.93);
+}
+
+@keyframes boing {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.88, 0.96); }
+  100% { transform: scale(0.93); }
+}
+
+.tile img {
+  width: 72%;
+  height: auto;
+  max-height: 70%;
+  pointer-events: none;
+}
+
+.tile .tile-name {
+  font-size: clamp(1.05rem, 2.6vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.tile:nth-child(5n + 1) { background: #FFE6A7; }
+.tile:nth-child(5n + 2) { background: #C9EDD3; }
+.tile:nth-child(5n + 3) { background: #FFD7DB; }
+.tile:nth-child(5n + 4) { background: #E3DCFA; }
+.tile:nth-child(5n + 5) { background: #FFDFC2; }
+
+.credits {
+  margin: 0;
+  padding: 0 18px 14px;
+  font-size: 0.65rem;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ---------- Player overlay ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #141227;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay[hidden] { display: none; }
+
+.player-frame {
+  height: min(100dvh, 177.8vw);
+  aspect-ratio: 9 / 16;
+  max-width: 100vw;
+}
+
+.player-frame iframe,
+#yt-slot {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Invisible shield: swallows every toddler tap on the video */
+.shield {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  background: transparent;
+}
+
+/* Loading state: the tapped animal bounces while the video buffers */
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  background: #141227;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.loading[hidden] { display: none; }
+
+.loading-img {
+  width: min(38vw, 260px);
+  animation: bounce 900ms ease-in-out infinite;
+}
+
+.loading-name {
+  color: #FFF6DA;
+  font-size: clamp(1.6rem, 5vw, 2.6rem);
+  font-weight: 600;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-16px) scale(1.04); }
+}
+
+/* Parent escape hatch: must be held down to trigger */
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 13;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 1.1rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 1.2s linear, background 1.2s linear;
+}
+
+.close-btn.holding {
+  transform: scale(1.35);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile:active { animation: none; }
+  .loading-img { animation: none; }
+  .close-btn { transition: none; }
+}
