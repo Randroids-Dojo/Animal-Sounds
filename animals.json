@@ -30,5 +30,7 @@
   { "name": "Woodpecker", "videoId": "ofowLBC4rP0", "image": "images/bird.svg", "hue": 260 },
   { "name": "Woodpecker", "videoId": "h1EK8tSl4fg", "image": "images/bird.svg", "hue": 310 },
   { "name": "Crane", "videoId": "tv9L1qnMkAg", "image": "images/crane.svg" },
-  { "name": "Eagle", "videoId": "Fisvu6pIYqM", "image": "images/eagle.svg" }
+  { "name": "Eagle", "videoId": "Fisvu6pIYqM", "image": "images/eagle.svg" },
+  { "name": "Cat", "videoId": "gNzuqxId7to", "image": "images/cat.svg" },
+  { "name": "Cow", "videoId": "_LkZ5E0pObU", "image": "images/cow.svg" }
 ]
