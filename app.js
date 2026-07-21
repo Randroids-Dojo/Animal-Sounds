@@ -320,12 +320,12 @@ function choosePuzzleAnimal() {
 }
 
 function resetDraggedPiece(piece) {
-  piece.classList.remove("dragging");
-  piece.style.position = "";
-  piece.style.left = "";
-  piece.style.top = "";
-  piece.style.width = "";
-  piece.style.height = "";
+  piece.classList.remove("drag-source");
+  piece.removeAttribute("aria-grabbed");
+}
+
+function removeDragGhost(ghost) {
+  ghost.remove();
 }
 
 function completePuzzle() {
@@ -352,21 +352,22 @@ function placePuzzlePiece(piece, slot) {
 
 function movePuzzlePiece(event) {
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
-  const { piece, offsetX, offsetY, startX, startY } = puzzleDrag;
+  const { ghost, offsetX, offsetY, startX, startY } = puzzleDrag;
   if (!puzzleDrag.moved && Math.hypot(event.clientX - startX, event.clientY - startY) > TAP_SLOP_PX) {
     puzzleDrag.moved = true;
     recordInteraction();
   }
-  piece.style.left = `${event.clientX - offsetX}px`;
-  piece.style.top = `${event.clientY - offsetY}px`;
+  ghost.style.left = `${event.clientX - offsetX}px`;
+  ghost.style.top = `${event.clientY - offsetY}px`;
 }
 
 function endPuzzleDrag(event) {
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
-  const { piece } = puzzleDrag;
+  const { piece, ghost } = puzzleDrag;
   if (piece.hasPointerCapture(event.pointerId)) piece.releasePointerCapture(event.pointerId);
   const target = document.elementFromPoint(event.clientX, event.clientY);
   const slot = target?.closest(".puzzle-slot");
+  removeDragGhost(ghost);
   if (slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
     placePuzzlePiece(piece, slot);
   } else {
@@ -380,8 +381,16 @@ function beginPuzzleDrag(event) {
   const piece = event.currentTarget;
   event.preventDefault();
   const rect = piece.getBoundingClientRect();
+  const ghost = piece.cloneNode(false);
+  ghost.className = "puzzle-piece dragging";
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.style.cssText = piece.style.cssText;
+  ghost.style.width = `${rect.width}px`;
+  ghost.style.height = `${rect.height}px`;
+  document.body.append(ghost);
   puzzleDrag = {
     piece,
+    ghost,
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
@@ -390,9 +399,8 @@ function beginPuzzleDrag(event) {
     moved: false,
   };
   piece.setPointerCapture(event.pointerId);
-  piece.classList.add("dragging");
-  piece.style.width = `${rect.width}px`;
-  piece.style.height = `${rect.height}px`;
+  piece.classList.add("drag-source");
+  piece.setAttribute("aria-grabbed", "true");
   movePuzzlePiece(event);
 }
 

@@ -309,6 +309,10 @@ body[data-page="puzzle"] #pages { transform: translateX(-100vw); }
   box-shadow: 0 12px 20px rgba(20, 18, 39, 0.28);
 }
 
+.puzzle-piece.drag-source {
+  opacity: 0.24;
+}
+
 #puzzle-success {
   position: absolute;
   left: 50%;
