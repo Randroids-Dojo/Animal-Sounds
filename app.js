@@ -11,6 +11,8 @@ const MAX_BREAK_MS = 60 * 60 * 1000;
 const IDLE_DIM_MS = 60 * 1000;
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
 const PUZZLE_COLORS = ["#FFE6A7", "#C9EDD3", "#FFD7DB", "#E3DCFA", "#FFDFC2"];
+const PUZZLE_GRID_SIZE = 3;
+const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
@@ -297,9 +299,10 @@ function shuffled(values) {
 }
 
 function puzzlePosition(index) {
-  const column = index % 3;
-  const row = Math.floor(index / 3);
-  return `${column * 50}% ${row * 50}%`;
+  const column = index % PUZZLE_GRID_SIZE;
+  const row = Math.floor(index / PUZZLE_GRID_SIZE);
+  const step = 100 / (PUZZLE_GRID_SIZE - 1);
+  return `${column * step}% ${row * step}%`;
 }
 
 function stylePuzzlePart(part, animal, index) {
@@ -342,12 +345,15 @@ function completePuzzle() {
 }
 
 function placePuzzlePiece(piece, slot) {
+  if (piece.disabled || slot.classList.contains("filled")) return;
   resetDraggedPiece(piece);
   slot.append(piece);
   slot.classList.add("filled");
+  piece.disabled = true;
+  piece.classList.add("placed");
   piece.setAttribute("aria-label", "Piece in the right place");
   puzzlePlaced += 1;
-  if (puzzlePlaced === 9) completePuzzle();
+  if (puzzlePlaced === PUZZLE_PIECE_COUNT) completePuzzle();
 }
 
 function movePuzzlePiece(event) {
@@ -379,6 +385,7 @@ function endPuzzleDrag(event) {
 function beginPuzzleDrag(event) {
   if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
   const piece = event.currentTarget;
+  if (piece.disabled) return;
   event.preventDefault();
   const rect = piece.getBoundingClientRect();
   const ghost = piece.cloneNode(false);
@@ -424,14 +431,14 @@ function newPuzzle() {
   puzzleBoard.replaceChildren();
   puzzleTray.replaceChildren();
   puzzleName.textContent = `Build a ${currentPuzzleAnimal.name}!`;
-  for (let index = 0; index < 9; index += 1) {
+  for (let index = 0; index < PUZZLE_PIECE_COUNT; index += 1) {
     const slot = document.createElement("div");
     slot.className = "puzzle-slot";
     slot.dataset.index = index;
     stylePuzzleSlot(slot, index);
     puzzleBoard.append(slot);
   }
-  for (const index of shuffled([...Array(9).keys()])) {
+  for (const index of shuffled([...Array(PUZZLE_PIECE_COUNT).keys()])) {
     puzzleTray.append(createPuzzlePiece(currentPuzzleAnimal, index));
   }
 }

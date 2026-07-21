@@ -313,6 +313,11 @@ body[data-page="puzzle"] #pages { transform: translateX(-100vw); }
   opacity: 0.24;
 }
 
+.puzzle-piece.placed {
+  box-shadow: none;
+  cursor: default;
+}
+
 #puzzle-success {
   position: absolute;
   left: 50%;
