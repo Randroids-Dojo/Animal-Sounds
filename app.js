@@ -6,7 +6,7 @@ const HOLD_MS = 1200;
 const TAP_SLOP_PX = 12;
 const SESSION_LIMIT_MS = 15 * 60 * 1000;
 const DAILY_LIMIT_MS = 60 * 60 * 1000;
-const FIRST_BREAK_MS = 5 * 60 * 1000;
+const FIRST_BREAK_MS = 30 * 60 * 1000;
 const MAX_BREAK_MS = 60 * 60 * 1000;
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
 
