@@ -214,6 +214,41 @@ body {
   background: rgba(255, 255, 255, 0.55);
 }
 
+/* ---------- Screen-time break ---------- */
+
+#time-limit {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--night);
+  color: var(--cream);
+  text-align: center;
+}
+
+#time-limit[hidden] { display: none; }
+
+.time-limit-card {
+  max-width: 420px;
+}
+
+.time-limit-icon {
+  font-size: clamp(4rem, 18vw, 7rem);
+}
+
+#time-limit-title {
+  margin: 14px 0 8px;
+  font-size: clamp(2rem, 8vw, 3.4rem);
+}
+
+#time-limit-message {
+  margin: 0;
+  font-size: clamp(1.2rem, 4.5vw, 1.8rem);
+  line-height: 1.35;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile:active { animation: none; }
   #loading-img { animation: none; }

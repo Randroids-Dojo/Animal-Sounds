@@ -25,6 +25,11 @@ The videos come from this YouTube playlist:
 - Parent escape hatch: **hold the ✕ in the top-right corner for about 1.2
   seconds** (`HOLD_MS` in app.js) while a video is playing. Quick taps do
   nothing.
+- Screen time is limited to **15 active minutes per session** and **one active
+  hour per local calendar day**. Session breaks use exponential backoff: 5
+  minutes after the first session, then 10, then 20; after the fourth session
+  reaches the daily hour, it stays locked until tomorrow. Usage and the current
+  lock persist across page reloads, and hidden tabs do not count toward usage.
 - Ad-free playback relies on a YouTube Premium account being signed in once
   in the kiosk browser (see step 6 below). Embedded players honor the
   viewer's Premium session.

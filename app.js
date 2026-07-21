@@ -4,6 +4,11 @@
 // CSS transition in init() so the visual fill always matches the trigger.
 const HOLD_MS = 1200;
 const TAP_SLOP_PX = 12;
+const SESSION_LIMIT_MS = 15 * 60 * 1000;
+const DAILY_LIMIT_MS = 60 * 60 * 1000;
+const FIRST_BREAK_MS = 5 * 60 * 1000;
+const MAX_BREAK_MS = 60 * 60 * 1000;
+const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
@@ -15,12 +20,135 @@ const loading = document.getElementById("loading");
 const loadingImg = document.getElementById("loading-img");
 const loadingName = document.getElementById("loading-name");
 const closeBtn = document.getElementById("close-btn");
+const timeLimit = document.getElementById("time-limit");
+const timeLimitTitle = document.getElementById("time-limit-title");
+const timeLimitMessage = document.getElementById("time-limit-message");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
 // then reused via loadVideoById — recreating it per tap costs seconds on
 // the tablet. "A video is open" is tracked by overlay.hidden alone.
 let player = null;
 let watchdog = null;
+
+function localDay(now = new Date()) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function freshScreenTime() {
+  return { day: localDay(), dailyMs: 0, sessionMs: 0, breakCount: 0, lockedUntil: 0 };
+}
+
+function loadScreenTime() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SCREEN_TIME_KEY));
+    if (saved?.day === localDay() && Number.isFinite(saved.dailyMs) && Number.isFinite(saved.sessionMs)) {
+      return {
+        day: saved.day,
+        dailyMs: Math.max(0, saved.dailyMs),
+        sessionMs: Math.max(0, saved.sessionMs),
+        breakCount: Math.max(0, Math.floor(saved.breakCount || 0)),
+        lockedUntil: Math.max(0, saved.lockedUntil || 0),
+      };
+    }
+  } catch (_) {
+    // A private-mode or malformed-storage failure should not break the app.
+  }
+  return freshScreenTime();
+}
+
+let screenTime = loadScreenTime();
+let countingSince = null;
+
+function saveScreenTime() {
+  try {
+    localStorage.setItem(SCREEN_TIME_KEY, JSON.stringify(screenTime));
+  } catch (_) {
+    // The limits still work for this open session when storage is unavailable.
+  }
+}
+
+function startOfTomorrow() {
+  const tomorrow = new Date();
+  tomorrow.setHours(24, 0, 0, 0);
+  return tomorrow.getTime();
+}
+
+function stopCounting(now = Date.now()) {
+  if (countingSince === null) return;
+  const elapsed = Math.max(0, now - countingSince);
+  screenTime.dailyMs += elapsed;
+  screenTime.sessionMs += elapsed;
+  countingSince = null;
+  saveScreenTime();
+}
+
+function startCounting(now = Date.now()) {
+  if (!document.hidden && timeLimit.hidden && countingSince === null) countingSince = now;
+}
+
+function stopPlaybackForLimit() {
+  if (currentClip) currentClip.pause();
+  try { speechSynthesis.cancel(); } catch (_) {}
+  closePlayer();
+}
+
+function formatRemaining(ms) {
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+}
+
+function showLimit(now = Date.now()) {
+  const dailyLock = screenTime.dailyMs >= DAILY_LIMIT_MS;
+  timeLimitTitle.textContent = dailyLock ? "All done for today!" : "Time for a break!";
+  timeLimitMessage.textContent = dailyLock
+    ? "You have had a full hour of animal sounds. Come back tomorrow."
+    : `Come back in ${formatRemaining(screenTime.lockedUntil - now)}.`;
+  timeLimit.hidden = false;
+  stopPlaybackForLimit();
+}
+
+function lockForBreak(now = Date.now()) {
+  stopCounting(now);
+  if (screenTime.dailyMs >= DAILY_LIMIT_MS) {
+    screenTime.dailyMs = DAILY_LIMIT_MS;
+    screenTime.lockedUntil = startOfTomorrow();
+  } else {
+    screenTime.sessionMs = 0;
+    screenTime.breakCount += 1;
+    const duration = Math.min(FIRST_BREAK_MS * (2 ** (screenTime.breakCount - 1)), MAX_BREAK_MS);
+    screenTime.lockedUntil = now + duration;
+  }
+  saveScreenTime();
+  showLimit(now);
+}
+
+function updateScreenTime(now = Date.now()) {
+  if (screenTime.day !== localDay()) {
+    screenTime = freshScreenTime();
+    countingSince = null;
+    timeLimit.hidden = true;
+    saveScreenTime();
+  }
+
+  if (!timeLimit.hidden) {
+    if (now >= screenTime.lockedUntil) {
+      screenTime.lockedUntil = 0;
+      timeLimit.hidden = true;
+      saveScreenTime();
+      startCounting(now);
+    } else {
+      showLimit(now);
+    }
+    return;
+  }
+
+  if (countingSince !== null) stopCounting(now);
+  if (screenTime.dailyMs >= DAILY_LIMIT_MS || screenTime.sessionMs >= SESSION_LIMIT_MS) {
+    lockForBreak(now);
+  } else {
+    startCounting(now);
+  }
+}
 
 // The IFrame API script calls this global when ready.
 const apiReady = new Promise((resolve) => {
@@ -39,6 +167,8 @@ async function init() {
   const res = await fetch("animals.json");
   animals = await res.json();
   renderGrid();
+  updateScreenTime();
+  setInterval(updateScreenTime, 1000);
 }
 
 function hueFilter(animal) {
@@ -216,5 +346,9 @@ closeBtn.addEventListener("pointercancel", cancelHold);
 // Swallow taps on the video and any long-press context menus.
 shield.addEventListener("pointerdown", (e) => e.preventDefault());
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopCounting();
+  else updateScreenTime();
+});
 
 init();
