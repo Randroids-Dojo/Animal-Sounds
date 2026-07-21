@@ -17,10 +17,11 @@ The videos come from this YouTube playlist:
 - Tapping a tile first plays a recording of the animal's name (files in
   `audio/`, generated with `randysay --text "Horse" -o horse.mp3`; filenames
   are the lowercased name with spaces as dashes).
-- Swipe left from the animal gallery to open **Animal Puzzle**. Each round
-  picks an animal image and shuffles its nine pieces; place each piece in its
-  matching outlined slot. A star, particles, and chime celebrate a completed
-  puzzle before a new randomized round appears.
+- Tap **Puzzle** in the header (or swipe left across an empty part of the
+  gallery) to open **Animal Puzzle**; tap **Sounds** or swipe right to return.
+  Each round picks an animal image and shuffles its nine pieces; place each
+  piece in its matching outlined slot. A star, particles, and chime celebrate
+  a completed puzzle before a new randomized round appears.
 - Playback uses the official YouTube IFrame API. An invisible "tap shield"
   covers the video so little fingers can't pause it, open related videos, or
   click through to YouTube.

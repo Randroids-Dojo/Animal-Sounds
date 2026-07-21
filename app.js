@@ -30,6 +30,8 @@ const puzzleBoard = document.getElementById("puzzle-board");
 const puzzleTray = document.getElementById("puzzle-tray");
 const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
+const pageViewport = document.getElementById("page-viewport");
+const pageTabs = document.querySelectorAll("[data-page-target]");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
 // then reused via loadVideoById — recreating it per tap costs seconds on
@@ -71,6 +73,7 @@ let puzzlePlaced = 0;
 let puzzleDrag = null;
 let puzzleSuccessTimer = null;
 let pageSwipe = null;
+let touchSwipe = null;
 let audioContext = null;
 
 function saveScreenTime() {
@@ -440,6 +443,24 @@ function playSuccessChime() {
   });
 }
 
+function showPage(page) {
+  document.body.dataset.page = page;
+  pageTabs.forEach((tab) => {
+    tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
+  });
+}
+
+function canStartPageSwipe(target) {
+  return !target.closest("button, .puzzle-piece, #idle-dim, #time-limit");
+}
+
+function handlePageSwipe(startX, startY, endX, endY) {
+  const deltaX = endX - startX;
+  const deltaY = endY - startY;
+  if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+  showPage(deltaX < 0 ? "puzzle" : "animals");
+}
+
 // Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3,
 // cached so repeat taps replay instantly.
 const voiceClips = new Map();
@@ -568,19 +589,30 @@ idleDim.addEventListener("pointerdown", (event) => {
   wakeIdleScreen();
 });
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+pageTabs.forEach((tab) => {
+  tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
+});
 document.addEventListener("pointerdown", (event) => {
-  if (event.pointerType !== "touch" || event.target.closest("button, .puzzle-piece")) return;
+  if (event.pointerType !== "touch" || !canStartPageSwipe(event.target)) return;
   pageSwipe = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
 });
 document.addEventListener("pointerup", (event) => {
   if (!pageSwipe || event.pointerId !== pageSwipe.pointerId) return;
-  const deltaX = event.clientX - pageSwipe.x;
-  const deltaY = event.clientY - pageSwipe.y;
+  handlePageSwipe(pageSwipe.x, pageSwipe.y, event.clientX, event.clientY);
   pageSwipe = null;
-  if (Math.abs(deltaX) < 70 || Math.abs(deltaX) < Math.abs(deltaY) * 1.4) return;
-  if (deltaX < 0) document.body.dataset.page = "puzzle";
-  if (deltaX > 0) document.body.dataset.page = "animals";
 });
+pageViewport.addEventListener("touchstart", (event) => {
+  if (event.touches.length !== 1 || !canStartPageSwipe(event.target)) return;
+  const touch = event.touches[0];
+  touchSwipe = { x: touch.clientX, y: touch.clientY };
+}, { passive: true });
+pageViewport.addEventListener("touchend", (event) => {
+  if (!touchSwipe || event.changedTouches.length !== 1) return;
+  const touch = event.changedTouches[0];
+  handlePageSwipe(touchSwipe.x, touchSwipe.y, touch.clientX, touch.clientY);
+  touchSwipe = null;
+}, { passive: true });
+pageViewport.addEventListener("touchcancel", () => { touchSwipe = null; }, { passive: true });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopCounting();
   else if (timeLimit.hidden) showIdleDim();

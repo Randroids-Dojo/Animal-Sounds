@@ -38,9 +38,9 @@ body {
 }
 
 .topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  justify-content: space-between;
   padding: 10px 18px 2px;
 }
 
@@ -90,6 +90,28 @@ body[data-page="puzzle"] #pages { transform: translateX(-100vw); }
 #daily-time-value {
   font-size: 1rem;
   font-weight: 600;
+}
+
+#page-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 7px;
+}
+
+#page-tabs button {
+  border: 2px solid rgba(59, 53, 96, 0.14);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+  font: 600 0.8rem/1 inherit;
+}
+
+#page-tabs button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--cream);
 }
 
 /* ---------- Tile grid ---------- */
