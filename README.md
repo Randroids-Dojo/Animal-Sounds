@@ -34,6 +34,9 @@ The videos come from this YouTube playlist:
 - After one minute without an interaction, the app dims and pauses the screen
   time clock. The next tap only wakes the app; a following tap selects an
   animal. Video playback keeps the app awake.
+- The header's **Today** timer shows the accumulated active time for the local
+  calendar day, including the current active second and excluding dimmed or
+  locked time.
 - Ad-free playback relies on a YouTube Premium account being signed in once
   in the kiosk browser (see step 6 below). Embedded players honor the
   viewer's Premium session.

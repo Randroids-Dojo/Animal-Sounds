@@ -25,6 +25,7 @@ const timeLimit = document.getElementById("time-limit");
 const timeLimitTitle = document.getElementById("time-limit-title");
 const timeLimitMessage = document.getElementById("time-limit-message");
 const idleDim = document.getElementById("idle-dim");
+const dailyTimeValue = document.getElementById("daily-time-value");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
 // then reused via loadVideoById — recreating it per tap costs seconds on
@@ -113,6 +114,16 @@ function formatRemaining(ms) {
   return `${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
+function renderDailyTime(now = Date.now()) {
+  const activeMs = screenTime.dailyMs + (countingSince === null ? 0 : Math.max(0, now - countingSince));
+  const totalSeconds = Math.floor(activeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  dailyTimeValue.value = `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  dailyTimeValue.textContent = dailyTimeValue.value;
+}
+
 function showLimit(now = Date.now()) {
   const dailyLock = screenTime.dailyMs >= DAILY_LIMIT_MS;
   timeLimitTitle.textContent = dailyLock ? "All done for today!" : "Time for a break!";
@@ -191,7 +202,11 @@ async function init() {
   animals = await res.json();
   renderGrid();
   updateScreenTime();
-  setInterval(updateScreenTime, 1000);
+  renderDailyTime();
+  setInterval(() => {
+    updateScreenTime();
+    renderDailyTime();
+  }, 1000);
 }
 
 function hueFilter(animal) {
