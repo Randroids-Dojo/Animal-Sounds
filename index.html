@@ -26,9 +26,35 @@
     </div>
   </header>
 
-  <main id="grid" aria-label="Animals"></main>
+  <div id="page-viewport">
+    <div id="pages">
+      <section id="animal-screen" class="app-screen" aria-label="Animal sounds">
+        <main id="grid" aria-label="Animals"></main>
+        <p class="credits">Animal art: OpenMoji.org (CC BY-SA 4.0)</p>
+      </section>
 
-  <p class="credits">Animal art: OpenMoji.org (CC BY-SA 4.0)</p>
+      <section id="puzzle-screen" class="app-screen" aria-label="Animal puzzle">
+        <div class="puzzle-heading">
+          <p>Animal puzzle</p>
+          <h2 id="puzzle-name">Find the pieces!</h2>
+          <span>Put each piece where it belongs.</span>
+        </div>
+        <div id="puzzle-board" aria-label="Puzzle board"></div>
+        <div id="puzzle-tray" aria-label="Mixed-up puzzle pieces"></div>
+        <div id="puzzle-success" aria-live="assertive" hidden>
+          <span class="success-star" aria-hidden="true">★</span>
+          <span class="success-particle" aria-hidden="true"></span>
+          <span class="success-particle" aria-hidden="true"></span>
+          <span class="success-particle" aria-hidden="true"></span>
+          <span class="success-particle" aria-hidden="true"></span>
+          <span class="success-particle" aria-hidden="true"></span>
+          <span class="success-particle" aria-hidden="true"></span>
+          <span class="success-particle" aria-hidden="true"></span>
+          <span class="success-particle" aria-hidden="true"></span>
+        </div>
+      </section>
+    </div>
+  </div>
 
   <div id="overlay" hidden>
     <div class="player-frame">

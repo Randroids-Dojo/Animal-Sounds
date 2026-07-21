@@ -26,6 +26,10 @@ const timeLimitTitle = document.getElementById("time-limit-title");
 const timeLimitMessage = document.getElementById("time-limit-message");
 const idleDim = document.getElementById("idle-dim");
 const dailyTimeValue = document.getElementById("daily-time-value");
+const puzzleBoard = document.getElementById("puzzle-board");
+const puzzleTray = document.getElementById("puzzle-tray");
+const puzzleName = document.getElementById("puzzle-name");
+const puzzleSuccess = document.getElementById("puzzle-success");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
 // then reused via loadVideoById — recreating it per tap costs seconds on
@@ -63,6 +67,12 @@ let screenTime = loadScreenTime();
 let countingSince = null;
 let lastInteractionAt = Date.now();
 let videoPlaying = false;
+let currentPuzzleAnimal = null;
+let puzzlePlaced = 0;
+let puzzleDrag = null;
+let puzzleSuccessTimer = null;
+let pageSwipe = null;
+let audioContext = null;
 
 function saveScreenTime() {
   try {
@@ -201,6 +211,7 @@ async function init() {
   const res = await fetch("animals.json");
   animals = await res.json();
   renderGrid();
+  newPuzzle();
   updateScreenTime();
   renderDailyTime();
   setInterval(() => {
@@ -258,6 +269,156 @@ function renderGrid() {
     tile.addEventListener("click", () => play(animal));
     return tile;
   }));
+}
+
+function shuffled(values) {
+  const result = [...values];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapWith = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapWith]] = [result[swapWith], result[index]];
+  }
+  return result;
+}
+
+function puzzlePosition(index) {
+  const column = index % 3;
+  const row = Math.floor(index / 3);
+  return `${column * 50}% ${row * 50}%`;
+}
+
+function stylePuzzlePart(part, animal, index) {
+  part.style.backgroundImage = `url("${animal.image}")`;
+  part.style.backgroundPosition = puzzlePosition(index);
+}
+
+function choosePuzzleAnimal() {
+  const options = animals.length > 1
+    ? animals.filter((animal) => animal !== currentPuzzleAnimal)
+    : animals;
+  return options[Math.floor(Math.random() * options.length)];
+}
+
+function resetDraggedPiece(piece) {
+  piece.classList.remove("dragging");
+  piece.style.position = "";
+  piece.style.left = "";
+  piece.style.top = "";
+  piece.style.width = "";
+  piece.style.height = "";
+}
+
+function completePuzzle() {
+  playSuccessChime();
+  puzzleSuccess.hidden = false;
+  puzzleSuccess.classList.remove("playing");
+  requestAnimationFrame(() => puzzleSuccess.classList.add("playing"));
+  clearTimeout(puzzleSuccessTimer);
+  puzzleSuccessTimer = setTimeout(() => {
+    puzzleSuccess.classList.remove("playing");
+    puzzleSuccess.hidden = true;
+    newPuzzle();
+  }, 4200);
+}
+
+function placePuzzlePiece(piece, slot) {
+  resetDraggedPiece(piece);
+  slot.append(piece);
+  slot.classList.add("filled");
+  piece.setAttribute("aria-label", "Piece in the right place");
+  puzzlePlaced += 1;
+  if (puzzlePlaced === 9) completePuzzle();
+}
+
+function movePuzzlePiece(event) {
+  if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
+  const { piece, offsetX, offsetY } = puzzleDrag;
+  piece.style.left = `${event.clientX - offsetX}px`;
+  piece.style.top = `${event.clientY - offsetY}px`;
+}
+
+function endPuzzleDrag(event) {
+  if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
+  const { piece } = puzzleDrag;
+  if (piece.hasPointerCapture(event.pointerId)) piece.releasePointerCapture(event.pointerId);
+  const target = document.elementFromPoint(event.clientX, event.clientY);
+  const slot = target?.closest(".puzzle-slot");
+  if (slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
+    placePuzzlePiece(piece, slot);
+  } else {
+    resetDraggedPiece(piece);
+  }
+  puzzleDrag = null;
+}
+
+function beginPuzzleDrag(event) {
+  if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
+  const piece = event.currentTarget;
+  event.preventDefault();
+  const rect = piece.getBoundingClientRect();
+  puzzleDrag = {
+    piece,
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+  };
+  piece.setPointerCapture(event.pointerId);
+  piece.classList.add("dragging");
+  piece.style.width = `${rect.width}px`;
+  piece.style.height = `${rect.height}px`;
+  movePuzzlePiece(event);
+}
+
+function createPuzzlePiece(animal, index) {
+  const piece = document.createElement("button");
+  piece.type = "button";
+  piece.className = "puzzle-piece";
+  piece.dataset.index = index;
+  piece.setAttribute("aria-label", "Puzzle piece");
+  stylePuzzlePart(piece, animal, index);
+  piece.addEventListener("pointerdown", beginPuzzleDrag);
+  piece.addEventListener("pointermove", movePuzzlePiece);
+  piece.addEventListener("pointerup", endPuzzleDrag);
+  piece.addEventListener("pointercancel", endPuzzleDrag);
+  return piece;
+}
+
+function newPuzzle() {
+  currentPuzzleAnimal = choosePuzzleAnimal();
+  puzzlePlaced = 0;
+  puzzleBoard.replaceChildren();
+  puzzleTray.replaceChildren();
+  puzzleName.textContent = `Build a ${currentPuzzleAnimal.name}!`;
+  for (let index = 0; index < 9; index += 1) {
+    const slot = document.createElement("div");
+    slot.className = "puzzle-slot";
+    slot.dataset.index = index;
+    stylePuzzlePart(slot, currentPuzzleAnimal, index);
+    puzzleBoard.append(slot);
+  }
+  for (const index of shuffled([...Array(9).keys()])) {
+    puzzleTray.append(createPuzzlePiece(currentPuzzleAnimal, index));
+  }
+}
+
+function playSuccessChime() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  audioContext ||= new AudioContext();
+  audioContext.resume?.();
+  const now = audioContext.currentTime;
+  [523.25, 659.25, 783.99].forEach((frequency, index) => {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const start = now + index * 0.13;
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.16, start + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.58);
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.6);
+  });
 }
 
 // Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3,
@@ -395,6 +556,19 @@ document.addEventListener("pointerdown", () => {
 }, { capture: true });
 document.addEventListener("keydown", () => recordInteraction());
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+document.addEventListener("pointerdown", (event) => {
+  if (event.pointerType !== "touch" || event.target.closest("button, .puzzle-piece")) return;
+  pageSwipe = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+});
+document.addEventListener("pointerup", (event) => {
+  if (!pageSwipe || event.pointerId !== pageSwipe.pointerId) return;
+  const deltaX = event.clientX - pageSwipe.x;
+  const deltaY = event.clientY - pageSwipe.y;
+  pageSwipe = null;
+  if (Math.abs(deltaX) < 70 || Math.abs(deltaX) < Math.abs(deltaY) * 1.4) return;
+  if (deltaX < 0) document.body.dataset.page = "puzzle";
+  if (deltaX > 0) document.body.dataset.page = "animals";
+});
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopCounting();
   else if (timeLimit.hidden) showIdleDim();
