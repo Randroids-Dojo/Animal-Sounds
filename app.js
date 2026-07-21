@@ -10,6 +10,7 @@ const FIRST_BREAK_MS = 30 * 60 * 1000;
 const MAX_BREAK_MS = 60 * 60 * 1000;
 const IDLE_DIM_MS = 60 * 1000;
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
+const PUZZLE_COLORS = ["#FFE6A7", "#C9EDD3", "#FFD7DB", "#E3DCFA", "#FFDFC2"];
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
@@ -304,6 +305,11 @@ function puzzlePosition(index) {
 function stylePuzzlePart(part, animal, index) {
   part.style.backgroundImage = `url("${animal.image}")`;
   part.style.backgroundPosition = puzzlePosition(index);
+  part.style.backgroundColor = PUZZLE_COLORS[index % PUZZLE_COLORS.length];
+}
+
+function stylePuzzleSlot(slot, index) {
+  slot.style.backgroundColor = PUZZLE_COLORS[index % PUZZLE_COLORS.length];
 }
 
 function choosePuzzleAnimal() {
@@ -414,7 +420,7 @@ function newPuzzle() {
     const slot = document.createElement("div");
     slot.className = "puzzle-slot";
     slot.dataset.index = index;
-    stylePuzzlePart(slot, currentPuzzleAnimal, index);
+    stylePuzzleSlot(slot, index);
     puzzleBoard.append(slot);
   }
   for (const index of shuffled([...Array(9).keys()])) {
@@ -451,7 +457,7 @@ function showPage(page) {
 }
 
 function canStartPageSwipe(target) {
-  return !target.closest("button, .puzzle-piece, #idle-dim, #time-limit");
+  return !target.closest(".puzzle-piece, #close-btn, #page-tabs button, #idle-dim, #time-limit");
 }
 
 function handlePageSwipe(startX, startY, endX, endY) {

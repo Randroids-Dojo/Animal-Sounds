@@ -43,8 +43,14 @@
           <h2 id="puzzle-name">Find the pieces!</h2>
           <span>Put each piece where it belongs.</span>
         </div>
-        <div id="puzzle-board" aria-label="Puzzle board"></div>
-        <div id="puzzle-tray" aria-label="Mixed-up puzzle pieces"></div>
+        <section class="puzzle-section" aria-labelledby="puzzle-slots-label">
+          <h3 id="puzzle-slots-label">Empty spots</h3>
+          <div id="puzzle-board" aria-label="Empty puzzle spots"></div>
+        </section>
+        <section class="puzzle-section" aria-labelledby="puzzle-pieces-label">
+          <h3 id="puzzle-pieces-label">Mixed-up pieces</h3>
+          <div id="puzzle-tray" aria-label="Mixed-up puzzle pieces"></div>
+        </section>
         <div id="puzzle-success" aria-live="assertive" hidden>
           <span class="success-star" aria-hidden="true">★</span>
           <span class="success-particle" aria-hidden="true"></span>
