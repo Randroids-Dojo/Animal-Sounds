@@ -249,6 +249,31 @@ body {
   line-height: 1.35;
 }
 
+/* Idle time pauses screen-time accounting until a deliberate wake tap. */
+#idle-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 18, 39, 0.82);
+  color: var(--cream);
+  text-align: center;
+}
+
+#idle-dim[hidden] { display: none; }
+
+.idle-dim-icon {
+  font-size: clamp(3.5rem, 15vw, 6rem);
+}
+
+#idle-dim p {
+  margin: 12px 0 0;
+  font-size: clamp(1.25rem, 5vw, 2rem);
+  font-weight: 600;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile:active { animation: none; }
   #loading-img { animation: none; }

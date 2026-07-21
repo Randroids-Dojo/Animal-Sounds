@@ -31,6 +31,9 @@ The videos come from this YouTube playlist:
   session reaches the daily hour, it stays locked until tomorrow. Usage and
   the current lock persist across page reloads, and hidden tabs do not count
   toward usage.
+- After one minute without an interaction, the app dims and pauses the screen
+  time clock. The next tap only wakes the app; a following tap selects an
+  animal. Video playback keeps the app awake.
 - Ad-free playback relies on a YouTube Premium account being signed in once
   in the kiosk browser (see step 6 below). Embedded players honor the
   viewer's Premium session.

@@ -8,6 +8,7 @@ const SESSION_LIMIT_MS = 15 * 60 * 1000;
 const DAILY_LIMIT_MS = 60 * 60 * 1000;
 const FIRST_BREAK_MS = 30 * 60 * 1000;
 const MAX_BREAK_MS = 60 * 60 * 1000;
+const IDLE_DIM_MS = 60 * 1000;
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
@@ -23,6 +24,7 @@ const closeBtn = document.getElementById("close-btn");
 const timeLimit = document.getElementById("time-limit");
 const timeLimitTitle = document.getElementById("time-limit-title");
 const timeLimitMessage = document.getElementById("time-limit-message");
+const idleDim = document.getElementById("idle-dim");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
 // then reused via loadVideoById — recreating it per tap costs seconds on
@@ -58,6 +60,8 @@ function loadScreenTime() {
 
 let screenTime = loadScreenTime();
 let countingSince = null;
+let lastInteractionAt = Date.now();
+let videoPlaying = false;
 
 function saveScreenTime() {
   try {
@@ -83,7 +87,19 @@ function stopCounting(now = Date.now()) {
 }
 
 function startCounting(now = Date.now()) {
-  if (!document.hidden && timeLimit.hidden && countingSince === null) countingSince = now;
+  if (!document.hidden && timeLimit.hidden && idleDim.hidden && countingSince === null) countingSince = now;
+}
+
+function showIdleDim(now = Date.now()) {
+  stopCounting(now);
+  idleDim.hidden = false;
+}
+
+function recordInteraction(now = Date.now()) {
+  if (!timeLimit.hidden) return;
+  lastInteractionAt = now;
+  if (!idleDim.hidden) idleDim.hidden = true;
+  startCounting(now);
 }
 
 function stopPlaybackForLimit() {
@@ -135,12 +151,19 @@ function updateScreenTime(now = Date.now()) {
       screenTime.lockedUntil = 0;
       timeLimit.hidden = true;
       saveScreenTime();
-      startCounting(now);
+      showIdleDim(now);
     } else {
       showLimit(now);
     }
     return;
   }
+
+  if (videoPlaying) recordInteraction(now);
+  if (idleDim.hidden && now - lastInteractionAt >= IDLE_DIM_MS) {
+    showIdleDim(now);
+    return;
+  }
+  if (!idleDim.hidden) return;
 
   if (countingSince !== null) stopCounting(now);
   if (screenTime.dailyMs >= DAILY_LIMIT_MS || screenTime.sessionMs >= SESSION_LIMIT_MS) {
@@ -294,6 +317,8 @@ async function play(animal) {
             try { e.target.stopVideo(); } catch (_) {}
             return;
           }
+          videoPlaying = true;
+          recordInteraction();
           clearTimeout(watchdog);
           loading.hidden = true;
         } else if (e.data === YT.PlayerState.BUFFERING) {
@@ -314,6 +339,7 @@ function armWatchdog(ms) {
 
 function closePlayer() {
   clearTimeout(watchdog);
+  videoPlaying = false;
   if (player) {
     try { player.stopVideo(); } catch (_) { /* not ready yet */ }
   }
@@ -345,10 +371,18 @@ closeBtn.addEventListener("pointercancel", cancelHold);
 
 // Swallow taps on the video and any long-press context menus.
 shield.addEventListener("pointerdown", (e) => e.preventDefault());
+idleDim.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  recordInteraction();
+});
+document.addEventListener("pointerdown", () => {
+  if (idleDim.hidden) recordInteraction();
+}, { capture: true });
+document.addEventListener("keydown", () => recordInteraction());
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopCounting();
-  else updateScreenTime();
+  else if (timeLimit.hidden) showIdleDim();
 });
 
 init();
