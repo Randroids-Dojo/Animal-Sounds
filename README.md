@@ -35,9 +35,10 @@ The videos come from this YouTube playlist:
   session reaches the daily hour, it stays locked until tomorrow. Usage and
   the current lock persist across page reloads, and hidden tabs do not count
   toward usage.
-- After one minute without an interaction, the app dims and pauses the screen
-  time clock. The next tap only wakes the app; a following tap selects an
-  animal. Video playback keeps the app awake.
+- Screen time starts only after an animal-tile tap or a moved puzzle piece.
+  After one minute without either, the app dims and pauses the clock. The next
+  tap only wakes the app; a following tile tap or puzzle move resumes counting.
+  Swipes, wake taps, close controls, and passive video playback do not count.
 - The header's **Today** timer shows the accumulated active time for the local
   calendar day, including the current active second and excluding dimmed or
   locked time.

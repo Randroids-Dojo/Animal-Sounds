@@ -66,7 +66,6 @@ function loadScreenTime() {
 let screenTime = loadScreenTime();
 let countingSince = null;
 let lastInteractionAt = Date.now();
-let videoPlaying = false;
 let currentPuzzleAnimal = null;
 let puzzlePlaced = 0;
 let puzzleDrag = null;
@@ -111,6 +110,11 @@ function recordInteraction(now = Date.now()) {
   lastInteractionAt = now;
   if (!idleDim.hidden) idleDim.hidden = true;
   startCounting(now);
+}
+
+function wakeIdleScreen(now = Date.now()) {
+  lastInteractionAt = now;
+  idleDim.hidden = true;
 }
 
 function stopPlaybackForLimit() {
@@ -167,6 +171,11 @@ function updateScreenTime(now = Date.now()) {
     saveScreenTime();
   }
 
+  if (screenTime.lockedUntil > now) {
+    showLimit(now);
+    return;
+  }
+
   if (!timeLimit.hidden) {
     if (now >= screenTime.lockedUntil) {
       screenTime.lockedUntil = 0;
@@ -179,7 +188,6 @@ function updateScreenTime(now = Date.now()) {
     return;
   }
 
-  if (videoPlaying) recordInteraction(now);
   if (idleDim.hidden && now - lastInteractionAt >= IDLE_DIM_MS) {
     showIdleDim(now);
     return;
@@ -212,6 +220,7 @@ async function init() {
   animals = await res.json();
   renderGrid();
   newPuzzle();
+  showIdleDim();
   updateScreenTime();
   renderDailyTime();
   setInterval(() => {
@@ -261,7 +270,10 @@ function renderGrid() {
       const touch = touches.get(event.pointerId);
       touches.delete(event.pointerId);
       if (tile.hasPointerCapture(event.pointerId)) tile.releasePointerCapture(event.pointerId);
-      if (touch && !touch.moved) play(animal);
+      if (touch && !touch.moved) {
+        recordInteraction();
+        play(animal);
+      }
     });
     tile.addEventListener("pointercancel", (event) => {
       touches.delete(event.pointerId);
@@ -331,7 +343,11 @@ function placePuzzlePiece(piece, slot) {
 
 function movePuzzlePiece(event) {
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
-  const { piece, offsetX, offsetY } = puzzleDrag;
+  const { piece, offsetX, offsetY, startX, startY } = puzzleDrag;
+  if (!puzzleDrag.moved && Math.hypot(event.clientX - startX, event.clientY - startY) > TAP_SLOP_PX) {
+    puzzleDrag.moved = true;
+    recordInteraction();
+  }
   piece.style.left = `${event.clientX - offsetX}px`;
   piece.style.top = `${event.clientY - offsetY}px`;
 }
@@ -358,8 +374,11 @@ function beginPuzzleDrag(event) {
   puzzleDrag = {
     piece,
     pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
     offsetX: event.clientX - rect.left,
     offsetY: event.clientY - rect.top,
+    moved: false,
   };
   piece.setPointerCapture(event.pointerId);
   piece.classList.add("dragging");
@@ -493,8 +512,6 @@ async function play(animal) {
             try { e.target.stopVideo(); } catch (_) {}
             return;
           }
-          videoPlaying = true;
-          recordInteraction();
           clearTimeout(watchdog);
           loading.hidden = true;
         } else if (e.data === YT.PlayerState.BUFFERING) {
@@ -515,7 +532,6 @@ function armWatchdog(ms) {
 
 function closePlayer() {
   clearTimeout(watchdog);
-  videoPlaying = false;
   if (player) {
     try { player.stopVideo(); } catch (_) { /* not ready yet */ }
   }
@@ -549,12 +565,8 @@ closeBtn.addEventListener("pointercancel", cancelHold);
 shield.addEventListener("pointerdown", (e) => e.preventDefault());
 idleDim.addEventListener("pointerdown", (event) => {
   event.preventDefault();
-  recordInteraction();
+  wakeIdleScreen();
 });
-document.addEventListener("pointerdown", () => {
-  if (idleDim.hidden) recordInteraction();
-}, { capture: true });
-document.addEventListener("keydown", () => recordInteraction());
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 document.addEventListener("pointerdown", (event) => {
   if (event.pointerType !== "touch" || event.target.closest("button, .puzzle-piece")) return;
