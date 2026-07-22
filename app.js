@@ -108,6 +108,7 @@ function startCounting(now = Date.now()) {
 
 function showIdleDim(now = Date.now()) {
   stopCounting(now);
+  cancelPuzzleDrag();
   idleDim.hidden = false;
 }
 
@@ -151,6 +152,7 @@ function showLimit(now = Date.now()) {
     ? "You have had a full hour of animal sounds. Come back tomorrow."
     : `Come back in ${formatRemaining(screenTime.lockedUntil - now)}.`;
   timeLimit.hidden = false;
+  cancelPuzzleDrag();
   stopPlaybackForLimit();
 }
 
@@ -331,6 +333,15 @@ function removeDragGhost(ghost) {
   ghost.remove();
 }
 
+function cancelPuzzleDrag() {
+  if (!puzzleDrag) return;
+  const { piece, ghost, pointerId } = puzzleDrag;
+  if (piece.hasPointerCapture(pointerId)) piece.releasePointerCapture(pointerId);
+  removeDragGhost(ghost);
+  resetDraggedPiece(piece);
+  puzzleDrag = null;
+}
+
 function completePuzzle() {
   playSuccessChime();
   puzzleSuccess.hidden = false;
@@ -462,6 +473,7 @@ function playSuccessChime() {
 }
 
 function showPage(page) {
+  if (page !== "puzzle") cancelPuzzleDrag();
   document.body.dataset.page = page;
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
