@@ -31,6 +31,7 @@ const idleDim = document.getElementById("idle-dim");
 const dailyTimeValue = document.getElementById("daily-time-value");
 const puzzleBoard = document.getElementById("puzzle-board");
 const puzzleTray = document.getElementById("puzzle-tray");
+const puzzleScreen = document.getElementById("puzzle-screen");
 const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
 const pageViewport = document.getElementById("page-viewport");
@@ -358,6 +359,8 @@ function completePuzzle() {
 function placePuzzlePiece(piece, slot) {
   if (piece.disabled || slot.classList.contains("filled")) return;
   resetDraggedPiece(piece);
+  piece.classList.remove("dropped");
+  ["left", "top", "width", "height"].forEach((property) => piece.style.removeProperty(property));
   slot.append(piece);
   slot.classList.add("filled");
   piece.disabled = true;
@@ -365,6 +368,20 @@ function placePuzzlePiece(piece, slot) {
   piece.setAttribute("aria-label", "Piece in the right place");
   puzzlePlaced += 1;
   if (puzzlePlaced === PUZZLE_PIECE_COUNT) completePuzzle();
+}
+
+function leavePuzzlePiece(piece, event, offsetX, offsetY) {
+  const screenRect = puzzleScreen.getBoundingClientRect();
+  const pieceRect = piece.getBoundingClientRect();
+  const left = Math.min(Math.max(0, event.clientX - offsetX - screenRect.left), screenRect.width - pieceRect.width);
+  const top = Math.min(Math.max(0, event.clientY - offsetY - screenRect.top), screenRect.height - pieceRect.height);
+  resetDraggedPiece(piece);
+  piece.classList.add("dropped");
+  piece.style.left = `${left}px`;
+  piece.style.top = `${top}px`;
+  piece.style.width = `${pieceRect.width}px`;
+  piece.style.height = `${pieceRect.height}px`;
+  puzzleScreen.append(piece);
 }
 
 function movePuzzlePiece(event) {
@@ -380,13 +397,15 @@ function movePuzzlePiece(event) {
 
 function endPuzzleDrag(event) {
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
-  const { piece, ghost } = puzzleDrag;
+  const { piece, ghost, offsetX, offsetY } = puzzleDrag;
   if (piece.hasPointerCapture(event.pointerId)) piece.releasePointerCapture(event.pointerId);
   const target = document.elementFromPoint(event.clientX, event.clientY);
   const slot = target?.closest(".puzzle-slot");
   removeDragGhost(ghost);
   if (slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
     placePuzzlePiece(piece, slot);
+  } else if (event.type === "pointerup") {
+    leavePuzzlePiece(piece, event, offsetX, offsetY);
   } else {
     resetDraggedPiece(piece);
   }
@@ -403,6 +422,8 @@ function beginPuzzleDrag(event) {
   ghost.className = "puzzle-piece dragging";
   ghost.setAttribute("aria-hidden", "true");
   ghost.style.cssText = piece.style.cssText;
+  ghost.style.removeProperty("left");
+  ghost.style.removeProperty("top");
   ghost.style.width = `${rect.width}px`;
   ghost.style.height = `${rect.height}px`;
   document.body.append(ghost);
@@ -434,8 +455,10 @@ function createPuzzlePiece(animal, index) {
 }
 
 function newPuzzle() {
+  cancelPuzzleDrag();
   currentPuzzleAnimal = choosePuzzleAnimal();
   puzzlePlaced = 0;
+  puzzleScreen.querySelectorAll(".puzzle-piece.dropped").forEach((piece) => piece.remove());
   puzzleBoard.replaceChildren();
   puzzleTray.replaceChildren();
   puzzleName.textContent = `Build a ${currentPuzzleAnimal.name}!`;

@@ -327,6 +327,12 @@ body[data-page="puzzle"] #page-viewport {
   opacity: 0.24;
 }
 
+.puzzle-piece.dropped {
+  position: absolute;
+  z-index: 3;
+  margin: 0;
+}
+
 .puzzle-piece.placed {
   box-shadow: none;
   cursor: default;
