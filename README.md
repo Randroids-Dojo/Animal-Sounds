@@ -22,7 +22,9 @@ The videos come from this YouTube playlist:
   Each round has two clear sections: nine mixed-up animal-image pieces and
   nine empty outlined slots. Place each piece in its matching slot. A star,
   particles, and chime celebrate a completed puzzle before a new randomized
-  round appears.
+  round appears. The puzzle stays fixed in the viewport; it does not scroll,
+  and a piece keeps tracking its own finger even if another touch rests on the
+  screen.
 - Playback uses the official YouTube IFrame API. An invisible "tap shield"
   covers the video so little fingers can't pause it, open related videos, or
   click through to YouTube.

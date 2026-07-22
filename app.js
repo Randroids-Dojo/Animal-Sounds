@@ -419,9 +419,6 @@ function createPuzzlePiece(animal, index) {
   piece.setAttribute("aria-label", "Puzzle piece");
   stylePuzzlePart(piece, animal, index);
   piece.addEventListener("pointerdown", beginPuzzleDrag);
-  piece.addEventListener("pointermove", movePuzzlePiece);
-  piece.addEventListener("pointerup", endPuzzleDrag);
-  piece.addEventListener("pointercancel", endPuzzleDrag);
   return piece;
 }
 
@@ -610,6 +607,11 @@ idleDim.addEventListener("pointerdown", (event) => {
   wakeIdleScreen();
 });
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+// Keep following the selected finger at the document level. This remains
+// reliable when another touch (such as a resting palm) is also on the screen.
+document.addEventListener("pointermove", movePuzzlePiece, { capture: true });
+document.addEventListener("pointerup", endPuzzleDrag, { capture: true });
+document.addEventListener("pointercancel", endPuzzleDrag, { capture: true });
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });

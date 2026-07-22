@@ -66,6 +66,17 @@ body {
 
 body[data-page="puzzle"] #pages { transform: translateX(-100vw); }
 
+/* The puzzle is a fixed play surface: no browser pan, pinch, or page scroll
+   can steal a piece from the finger that is moving it. */
+body[data-page="puzzle"] {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body[data-page="puzzle"] #page-viewport {
+  height: calc(100dvh - 72px);
+}
+
 .app-screen {
   width: 100vw;
   flex: 0 0 100vw;
@@ -192,9 +203,12 @@ body[data-page="puzzle"] #pages { transform: translateX(-100vw); }
 
 #puzzle-screen {
   position: relative;
-  min-height: calc(100dvh - 56px);
+  height: calc(100dvh - 72px);
+  min-height: 0;
+  overflow: hidden;
   padding: 4px 14px 24px;
   background: linear-gradient(155deg, #E3DCFA 0%, var(--sky) 48%, #C9EDD3 100%);
+  touch-action: none;
 }
 
 .puzzle-heading {
@@ -227,12 +241,12 @@ body[data-page="puzzle"] #pages { transform: translateX(-100vw); }
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 5px;
-  width: min(80vw, 360px);
+  width: min(80vw, 360px, calc((100dvh - 175px) / 2));
   margin-inline: auto;
 }
 
 .puzzle-section > h3 {
-  width: min(80vw, 360px);
+  width: min(80vw, 360px, calc((100dvh - 175px) / 2));
   margin: 10px auto 5px;
   color: #635A91;
   font-size: 0.76rem;
