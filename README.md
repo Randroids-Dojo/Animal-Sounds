@@ -32,13 +32,13 @@ The videos come from this YouTube playlist:
   seconds** (`HOLD_MS` in app.js) while a video is playing. Quick taps do
   nothing.
 - Screen time is limited to **15 active minutes per session** and **one active
-  hour per local calendar day**. Session breaks use exponential backoff: 30
-  minutes after the first session, then 60 (the maximum); after the fourth
-  session reaches the daily hour, it stays locked until tomorrow. Usage and
+  hour per local calendar day**. Each session break lasts **three hours**;
+  after the fourth session reaches the daily hour, it stays locked until
+  tomorrow. Usage and
   the current lock persist across page reloads, and hidden tabs do not count
   toward usage.
 - Screen time starts only after an animal-tile tap or a moved puzzle piece.
-  After one minute without either, the app dims and pauses the clock. The next
+  After 45 seconds without either, the app dims and pauses the clock. The next
   tap only wakes the app; a following tile tap or puzzle move resumes counting.
   Swipes, wake taps, close controls, and passive video playback do not count.
 - The header's **Today** timer shows the accumulated active time for the local
