@@ -34,7 +34,6 @@ const puzzleTray = document.getElementById("puzzle-tray");
 const puzzleScreen = document.getElementById("puzzle-screen");
 const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
-const pageViewport = document.getElementById("page-viewport");
 const pageTabs = document.querySelectorAll("[data-page-target]");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
@@ -75,9 +74,8 @@ let lastInteractionAt = Date.now();
 let currentPuzzleAnimal = null;
 let puzzlePlaced = 0;
 let puzzleDrag = null;
+let puzzleCompleting = false;
 let puzzleSuccessTimer = null;
-let pageSwipe = null;
-let touchSwipe = null;
 let audioContext = null;
 
 function saveScreenTime() {
@@ -334,17 +332,26 @@ function removeDragGhost(ghost) {
   ghost.remove();
 }
 
+function removeAllDragGhosts() {
+  document.querySelectorAll(".puzzle-piece.dragging").forEach((ghost) => ghost.remove());
+}
+
 function cancelPuzzleDrag() {
-  if (!puzzleDrag) return;
-  const { piece, ghost, pointerId } = puzzleDrag;
-  if (piece.hasPointerCapture(pointerId)) piece.releasePointerCapture(pointerId);
-  removeDragGhost(ghost);
-  resetDraggedPiece(piece);
-  puzzleDrag = null;
+  if (puzzleDrag) {
+    const { piece, pointerId } = puzzleDrag;
+    if (piece.hasPointerCapture(pointerId)) piece.releasePointerCapture(pointerId);
+    resetDraggedPiece(piece);
+    puzzleDrag = null;
+  }
+  removeAllDragGhosts();
 }
 
 function completePuzzle() {
+  if (puzzleCompleting) return;
+  puzzleCompleting = true;
+  cancelPuzzleDrag();
   playSuccessChime();
+  puzzleScreen.classList.add("puzzle-complete");
   puzzleSuccess.hidden = false;
   puzzleSuccess.classList.remove("playing");
   requestAnimationFrame(() => puzzleSuccess.classList.add("playing"));
@@ -357,7 +364,7 @@ function completePuzzle() {
 }
 
 function placePuzzlePiece(piece, slot) {
-  if (piece.disabled || slot.classList.contains("filled")) return;
+  if (puzzleCompleting || piece.disabled || slot.classList.contains("filled")) return;
   resetDraggedPiece(piece);
   piece.classList.remove("dropped");
   ["left", "top", "width", "height"].forEach((property) => piece.style.removeProperty(property));
@@ -366,7 +373,7 @@ function placePuzzlePiece(piece, slot) {
   piece.disabled = true;
   piece.classList.add("placed");
   piece.setAttribute("aria-label", "Piece in the right place");
-  puzzlePlaced += 1;
+  puzzlePlaced = puzzleBoard.querySelectorAll(".puzzle-slot.filled").length;
   if (puzzlePlaced === PUZZLE_PIECE_COUNT) completePuzzle();
 }
 
@@ -398,6 +405,7 @@ function movePuzzlePiece(event) {
 function endPuzzleDrag(event) {
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
   const { piece, ghost, offsetX, offsetY } = puzzleDrag;
+  puzzleDrag = null;
   if (piece.hasPointerCapture(event.pointerId)) piece.releasePointerCapture(event.pointerId);
   const target = document.elementFromPoint(event.clientX, event.clientY);
   const slot = target?.closest(".puzzle-slot");
@@ -409,14 +417,18 @@ function endPuzzleDrag(event) {
   } else {
     resetDraggedPiece(piece);
   }
-  puzzleDrag = null;
 }
 
 function beginPuzzleDrag(event) {
   if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
   const piece = event.currentTarget;
-  if (piece.disabled) return;
+  if (piece.disabled || puzzleCompleting) return;
+  if (puzzleDrag) {
+    event.preventDefault();
+    return;
+  }
   event.preventDefault();
+  removeAllDragGhosts();
   const rect = piece.getBoundingClientRect();
   const ghost = piece.cloneNode(false);
   ghost.className = "puzzle-piece dragging";
@@ -456,6 +468,11 @@ function createPuzzlePiece(animal, index) {
 
 function newPuzzle() {
   cancelPuzzleDrag();
+  clearTimeout(puzzleSuccessTimer);
+  puzzleCompleting = false;
+  puzzleScreen.classList.remove("puzzle-complete");
+  puzzleSuccess.classList.remove("playing");
+  puzzleSuccess.hidden = true;
   currentPuzzleAnimal = choosePuzzleAnimal();
   puzzlePlaced = 0;
   puzzleScreen.querySelectorAll(".puzzle-piece.dropped").forEach((piece) => piece.remove());
@@ -501,17 +518,6 @@ function showPage(page) {
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
   });
-}
-
-function canStartPageSwipe(target) {
-  return !target.closest(".puzzle-piece, #close-btn, #page-tabs button, #idle-dim, #time-limit");
-}
-
-function handlePageSwipe(startX, startY, endX, endY) {
-  const deltaX = endX - startX;
-  const deltaY = endY - startY;
-  if (Math.abs(deltaX) < 55 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
-  showPage(deltaX < 0 ? "puzzle" : "animals");
 }
 
 // Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3,
@@ -650,27 +656,6 @@ document.addEventListener("pointercancel", endPuzzleDrag, { capture: true });
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });
-document.addEventListener("pointerdown", (event) => {
-  if (event.pointerType !== "touch" || !canStartPageSwipe(event.target)) return;
-  pageSwipe = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
-});
-document.addEventListener("pointerup", (event) => {
-  if (!pageSwipe || event.pointerId !== pageSwipe.pointerId) return;
-  handlePageSwipe(pageSwipe.x, pageSwipe.y, event.clientX, event.clientY);
-  pageSwipe = null;
-});
-pageViewport.addEventListener("touchstart", (event) => {
-  if (event.touches.length !== 1 || !canStartPageSwipe(event.target)) return;
-  const touch = event.touches[0];
-  touchSwipe = { x: touch.clientX, y: touch.clientY };
-}, { passive: true });
-pageViewport.addEventListener("touchend", (event) => {
-  if (!touchSwipe || event.changedTouches.length !== 1) return;
-  const touch = event.changedTouches[0];
-  handlePageSwipe(touchSwipe.x, touchSwipe.y, touch.clientX, touch.clientY);
-  touchSwipe = null;
-}, { passive: true });
-pageViewport.addEventListener("touchcancel", () => { touchSwipe = null; }, { passive: true });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopCounting();
   else if (timeLimit.hidden) showIdleDim();

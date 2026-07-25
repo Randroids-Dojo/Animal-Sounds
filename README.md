@@ -17,8 +17,9 @@ The videos come from this YouTube playlist:
 - Tapping a tile first plays a recording of the animal's name (files in
   `audio/`, generated with `randysay --text "Horse" -o horse.mp3`; filenames
   are the lowercased name with spaces as dashes).
-- Tap **Puzzle** in the header (or swipe left across an empty part of the
-  gallery) to open **Animal Puzzle**; tap **Sounds** or swipe right to return.
+- Tap the large **Puzzle** tab in the header to open **Animal Puzzle**; tap the
+  large **Sounds** tab to return. Swipe navigation is deliberately disabled so
+  dragging a puzzle piece cannot accidentally change pages.
   Each round has two clear sections: nine mixed-up animal-image pieces and
   nine empty outlined slots. Place each piece in its matching slot. A star,
   particles, and chime celebrate a completed puzzle before a new randomized
@@ -128,8 +129,8 @@ As configured on Randy's tablet (July 2026), in FreeKiosk's settings
 - **PIN**: set a unique six-digit PIN (do not leave the default `1234`).
 - SECURITY: **Enable Lock Mode** ON, **Launch on Boot** ON.
 - **Return to Settings**: use **Fixed Corner**, with the return indicator
-  hidden; keep the 10-taps-within-3-seconds requirement, then require the
-  PIN. Do not use **Tap Anywhere**: ordinary tile taps can satisfy it.
+  hidden; require **15 taps within 1.5 seconds**, then require the PIN. Do not
+  use **Tap Anywhere**: ordinary tile taps can satisfy it.
 - Disable the volume-button return shortcut unless it is specifically needed
   for maintenance.
 - Left OFF (deliberately): Block Power Menu and Show System Info Bar — the
