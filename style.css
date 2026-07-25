@@ -75,8 +75,6 @@ body::after {
   transition: transform 260ms cubic-bezier(0.22, 0.8, 0.25, 1);
 }
 
-body[data-page="puzzle"] #pages { transform: translateX(-100vw); }
-
 /* The puzzle is a fixed play surface: no browser pan, pinch, or page scroll
    can steal a piece from the finger that is moving it. */
 body[data-page="puzzle"] {
@@ -92,6 +90,7 @@ body[data-page="puzzle"] #page-viewport {
 
 body[data-page="puzzle"] #pages {
   height: 100%;
+  transform: translateX(-100vw);
 }
 
 .app-screen {
