@@ -90,7 +90,7 @@ body[data-page="puzzle"] #page-viewport {
 
 body[data-page="puzzle"] #pages {
   height: 100%;
-  transform: translateX(-100vw);
+  transform: translateX(-50%);
 }
 
 .app-screen {

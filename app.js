@@ -516,10 +516,15 @@ function playSuccessChime() {
 function showPage(page) {
   if (page !== "puzzle") cancelPuzzleDrag();
   document.body.dataset.page = page;
-  pages.style.transform = page === "puzzle" ? "translateX(-100vw)" : "translateX(0)";
+  positionPages();
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
   });
+}
+
+function positionPages() {
+  const offset = document.body.dataset.page === "puzzle" ? -window.innerWidth : 0;
+  pages.style.transform = `translateX(${offset}px)`;
 }
 
 // Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3,
@@ -658,6 +663,7 @@ document.addEventListener("pointercancel", endPuzzleDrag, { capture: true });
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });
+window.addEventListener("resize", positionPages);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopCounting();
   else if (timeLimit.hidden) showIdleDim();
