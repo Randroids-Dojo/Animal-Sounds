@@ -34,6 +34,7 @@ const puzzleTray = document.getElementById("puzzle-tray");
 const puzzleScreen = document.getElementById("puzzle-screen");
 const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
+const pages = document.getElementById("pages");
 const pageTabs = document.querySelectorAll("[data-page-target]");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
@@ -515,6 +516,7 @@ function playSuccessChime() {
 function showPage(page) {
   if (page !== "puzzle") cancelPuzzleDrag();
   document.body.dataset.page = page;
+  pages.style.transform = page === "puzzle" ? "translateX(-100vw)" : "translateX(0)";
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
   });
