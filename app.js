@@ -4,6 +4,12 @@
 // CSS transition in init() so the visual fill always matches the trigger.
 const HOLD_MS = 1200;
 const TAP_SLOP_PX = 12;
+const TAP_MAX_MS = 700;
+const TAP_ARBITRATION_MS = 90;
+// CSS-pixel contact geometry is optional. These deliberately conservative
+// limits reject only contacts much broader than a toddler fingertip.
+const BROAD_CONTACT_MAJOR_PX = 70;
+const BROAD_CONTACT_AREA_PX2 = 2800;
 const SESSION_LIMIT_MS = 15 * 60 * 1000;
 const DAILY_LIMIT_MS = 60 * 60 * 1000;
 const FIRST_BREAK_MS = 3 * 60 * 60 * 1000;
@@ -75,6 +81,11 @@ let lastInteractionAt = Date.now();
 let currentPuzzleAnimal = null;
 let puzzlePlaced = 0;
 let puzzleDrag = null;
+const puzzleDragCandidates = new Map();
+const tileTapCandidates = new Map();
+let pendingTileTaps = [];
+let tileTapTimer = null;
+let suppressTouchClicksUntil = 0;
 let puzzleCompleting = false;
 let puzzleSuccessTimer = null;
 let audioContext = null;
@@ -108,6 +119,7 @@ function startCounting(now = Date.now()) {
 
 function showIdleDim(now = Date.now()) {
   stopCounting(now);
+  cancelTileTaps();
   cancelPuzzleDrag();
   idleDim.hidden = false;
 }
@@ -152,6 +164,7 @@ function showLimit(now = Date.now()) {
     ? "You have had a full hour of animal sounds. Come back tomorrow."
     : `Come back in ${formatRemaining(screenTime.lockedUntil - now)}.`;
   timeLimit.hidden = false;
+  cancelTileTaps();
   cancelPuzzleDrag();
   stopPlaybackForLimit();
 }
@@ -241,6 +254,74 @@ function hueFilter(animal) {
   return animal.hue ? `hue-rotate(${animal.hue}deg)` : "";
 }
 
+const touchLimits = {
+  maxDuration: TAP_MAX_MS,
+  maxDistance: TAP_SLOP_PX,
+  maxMajor: BROAD_CONTACT_MAJOR_PX,
+  maxArea: BROAD_CONTACT_AREA_PX2,
+};
+
+function pointIsInside(element, x, y) {
+  const rect = element.getBoundingClientRect();
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function beginTileTap(event, tile, animal) {
+  if (event.pointerType !== "touch") return;
+  tileTapCandidates.set(event.pointerId, TouchIntent.beginCandidate(event, { tile, animal }));
+}
+
+function updateTileTap(event) {
+  const candidate = tileTapCandidates.get(event.pointerId);
+  if (candidate) TouchIntent.updateCandidate(candidate, event);
+}
+
+function cancelTileTaps() {
+  clearTimeout(tileTapTimer);
+  tileTapTimer = null;
+  pendingTileTaps = [];
+  tileTapCandidates.clear();
+}
+
+function commitBestTileTap() {
+  tileTapTimer = null;
+  const candidates = pendingTileTaps;
+  pendingTileTaps = [];
+  if (
+    !candidates.length
+    || !overlay.hidden
+    || !timeLimit.hidden
+    || document.body.dataset.page !== "animals"
+  ) return;
+
+  const winner = candidates.sort(TouchIntent.compareTapCandidates)[0];
+  // A completed intentional tap owns this interaction. Contacts already down
+  // (resting palm, belly, or extra fingers) are discarded and cannot trigger
+  // later when they lift; a fresh pointerdown is required for the next tap.
+  tileTapCandidates.clear();
+  recordInteraction();
+  play(winner.animal);
+}
+
+function endTileTap(event) {
+  const candidate = tileTapCandidates.get(event.pointerId);
+  if (!candidate) return;
+  tileTapCandidates.delete(event.pointerId);
+  TouchIntent.updateCandidate(candidate, event);
+  suppressTouchClicksUntil = Date.now() + 800;
+  if (event.type !== "pointerup") return;
+  if (!pointIsInside(candidate.tile, event.clientX, event.clientY)) return;
+  if (!TouchIntent.isPlausibleTap(candidate, event.timeStamp, touchLimits)) return;
+
+  // Keep native page scrolling intact by never canceling pointerdown/move.
+  // This stationary pointerup is handled here, so its compatibility click is
+  // suppressed by the click guard below.
+  event.preventDefault();
+  candidate.endedAt = event.timeStamp;
+  pendingTileTaps.push(candidate);
+  tileTapTimer ||= setTimeout(commitBestTileTap, TAP_ARBITRATION_MS);
+}
+
 function renderGrid() {
   grid.append(...animals.map((animal) => {
     const tile = document.createElement("button");
@@ -257,36 +338,16 @@ function renderGrid() {
     label.textContent = animal.name;
 
     tile.append(img, label);
-    // Touch browsers can withhold the synthetic click while another contact
-    // (a hand or clothing) is still on the screen. Resolve a stationary touch
-    // from this tile's own pointer, but never cancel it: canceling pointerdown
-    // prevents the browser from turning a drag on a tile into a page scroll.
-    const touches = new Map();
-    tile.addEventListener("pointerdown", (event) => {
-      if (event.pointerType !== "touch") return;
-      touches.set(event.pointerId, { x: event.clientX, y: event.clientY, moved: false });
-      tile.setPointerCapture(event.pointerId);
+    tile.addEventListener("pointerdown", (event) => beginTileTap(event, tile, animal));
+    tile.addEventListener("click", (event) => {
+      // Touch is resolved from its own pointer ID because browsers may omit a
+      // synthetic click while another contact remains down. Preserve mouse,
+      // keyboard, and assistive-technology activation.
+      if (event.pointerType === "touch") return;
+      if (event.detail !== 0 && Date.now() < suppressTouchClicksUntil) return;
+      recordInteraction();
+      play(animal);
     });
-    tile.addEventListener("pointermove", (event) => {
-      const touch = touches.get(event.pointerId);
-      if (!touch) return;
-      if (Math.hypot(event.clientX - touch.x, event.clientY - touch.y) > TAP_SLOP_PX) {
-        touch.moved = true;
-      }
-    });
-    tile.addEventListener("pointerup", (event) => {
-      const touch = touches.get(event.pointerId);
-      touches.delete(event.pointerId);
-      if (tile.hasPointerCapture(event.pointerId)) tile.releasePointerCapture(event.pointerId);
-      if (touch && !touch.moved) {
-        recordInteraction();
-        play(animal);
-      }
-    });
-    tile.addEventListener("pointercancel", (event) => {
-      touches.delete(event.pointerId);
-    });
-    tile.addEventListener("click", () => play(animal));
     return tile;
   }));
 }
@@ -338,6 +399,7 @@ function removeAllDragGhosts() {
 }
 
 function cancelPuzzleDrag() {
+  puzzleDragCandidates.clear();
   if (puzzleDrag) {
     const { piece, pointerId } = puzzleDrag;
     if (piece.hasPointerCapture(pointerId)) piece.releasePointerCapture(pointerId);
@@ -393,6 +455,17 @@ function leavePuzzlePiece(piece, event, offsetX, offsetY) {
 }
 
 function movePuzzlePiece(event) {
+  if (!puzzleDrag) {
+    const candidate = puzzleDragCandidates.get(event.pointerId);
+    if (!candidate) return;
+    TouchIntent.updateCandidate(candidate, event);
+    if (candidate.maxDistance <= TAP_SLOP_PX) return;
+    if (TouchIntent.looksLikeBroadContact(candidate, touchLimits)) {
+      puzzleDragCandidates.delete(event.pointerId);
+      return;
+    }
+    claimPuzzleDrag(candidate, event);
+  }
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
   const { ghost, offsetX, offsetY, startX, startY } = puzzleDrag;
   if (!puzzleDrag.moved && Math.hypot(event.clientX - startX, event.clientY - startY) > TAP_SLOP_PX) {
@@ -404,6 +477,7 @@ function movePuzzlePiece(event) {
 }
 
 function endPuzzleDrag(event) {
+  puzzleDragCandidates.delete(event.pointerId);
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
   const { piece, ghost, offsetX, offsetY } = puzzleDrag;
   puzzleDrag = null;
@@ -420,17 +494,12 @@ function endPuzzleDrag(event) {
   }
 }
 
-function beginPuzzleDrag(event) {
-  if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
-  const piece = event.currentTarget;
-  if (piece.disabled || puzzleCompleting) return;
-  if (puzzleDrag) {
-    event.preventDefault();
-    return;
-  }
-  event.preventDefault();
+function claimPuzzleDrag(candidate, event) {
+  const { piece } = candidate;
+  if (puzzleDrag || piece.disabled || puzzleCompleting) return;
+  puzzleDragCandidates.clear();
   removeAllDragGhosts();
-  const rect = piece.getBoundingClientRect();
+  const rect = candidate.rect;
   const ghost = piece.cloneNode(false);
   ghost.className = "puzzle-piece dragging";
   ghost.setAttribute("aria-hidden", "true");
@@ -444,16 +513,32 @@ function beginPuzzleDrag(event) {
     piece,
     ghost,
     pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    offsetX: event.clientX - rect.left,
-    offsetY: event.clientY - rect.top,
-    moved: false,
+    startX: candidate.startX,
+    startY: candidate.startY,
+    offsetX: candidate.startX - rect.left,
+    offsetY: candidate.startY - rect.top,
+    moved: event.pointerType === "touch",
   };
   piece.setPointerCapture(event.pointerId);
   piece.classList.add("drag-source");
   piece.setAttribute("aria-grabbed", "true");
+  if (event.pointerType === "touch") recordInteraction();
   movePuzzlePiece(event);
+}
+
+function beginPuzzleDrag(event) {
+  if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
+  const piece = event.currentTarget;
+  if (piece.disabled || puzzleCompleting) return;
+  event.preventDefault();
+  if (puzzleDrag) return;
+
+  const candidate = TouchIntent.beginCandidate(event, {
+    piece,
+    rect: piece.getBoundingClientRect(),
+  });
+  if (event.pointerType === "mouse") claimPuzzleDrag(candidate, event);
+  else puzzleDragCandidates.set(event.pointerId, candidate);
 }
 
 function createPuzzlePiece(animal, index) {
@@ -514,6 +599,7 @@ function playSuccessChime() {
 }
 
 function showPage(page) {
+  cancelTileTaps();
   if (page !== "puzzle") cancelPuzzleDrag();
   document.body.dataset.page = page;
   positionPages();
@@ -655,11 +741,21 @@ idleDim.addEventListener("pointerdown", (event) => {
   wakeIdleScreen();
 });
 document.addEventListener("contextmenu", (e) => e.preventDefault());
-// Keep following the selected finger at the document level. This remains
-// reliable when another touch (such as a resting palm) is also on the screen.
-document.addEventListener("pointermove", movePuzzlePiece, { capture: true });
-document.addEventListener("pointerup", endPuzzleDrag, { capture: true });
-document.addEventListener("pointercancel", endPuzzleDrag, { capture: true });
+// Observe contacts at document level so native scrolling can cancel tile
+// candidates, and so the one puzzle finger that demonstrates drag intent
+// keeps ownership while all other contacts are ignored.
+document.addEventListener("pointermove", (event) => {
+  updateTileTap(event);
+  movePuzzlePiece(event);
+}, { capture: true });
+document.addEventListener("pointerup", (event) => {
+  endTileTap(event);
+  endPuzzleDrag(event);
+}, { capture: true });
+document.addEventListener("pointercancel", (event) => {
+  endTileTap(event);
+  endPuzzleDrag(event);
+}, { capture: true });
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });

@@ -25,8 +25,16 @@ The videos come from this YouTube playlist:
   particles, and chime celebrate a completed puzzle before a new randomized
   round appears. The puzzle stays fixed in the viewport; it does not scroll,
   and a piece keeps tracking its own finger even if another touch rests on the
-  screen. Pieces remain where they are released until moved again or placed in
+  screen. A contact does not own a piece until it moves with drag intent, so a
+  stationary palm, belly, or extra finger cannot block the finger doing the
+  puzzle. Pieces remain where they are released until moved again or placed in
   their matching spot.
+- Touch input is arbitrated one intentional pointer at a time. Animal taps must
+  be brief, stationary fingertip-sized contacts; simultaneous candidates are
+  considered together for 90 ms and only the best candidate is committed.
+  Long holds, broad contacts (when the WebView reports contact geometry),
+  canceled pointers, and every non-winning contact are ignored. Mouse,
+  keyboard, and assistive-technology activation continue to use native clicks.
 - Playback uses the official YouTube IFrame API. An invisible "tap shield"
   covers the video so little fingers can't pause it, open related videos, or
   click through to YouTube.
@@ -173,6 +181,12 @@ Test with the kiosk locked:
 - [ ] In-app: quick-tap the ✕ — nothing; hold it ~1.2 s — back to the grid.
 - [ ] Hold one finger on the screen, then tap several different animal tiles
       with another finger — each new tile tap must still open its video.
+- [ ] Rest a palm or belly on one or more tiles, lift it, and verify no animal
+      opens; while it remains down, tap an animal with one fingertip and verify
+      only that animal opens.
+- [ ] Rest one or more fingers on puzzle pieces, then drag a different piece;
+      the moving finger must own the piece and the resting contacts must do
+      nothing when lifted.
 - [ ] Start an upward swipe on an animal tile — the grid must scroll instead
       of opening that tile.
 - [ ] Verify that repeated taps on tiles do not open FreeKiosk settings; only
