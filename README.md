@@ -61,6 +61,8 @@ The videos come from this YouTube playlist:
 - Screen time starts only after an animal-tile tap or a moved puzzle piece.
   After 45 seconds without either, the app dims and pauses the clock. The next
   tap only wakes the app; a following tile tap or puzzle move resumes counting.
+  The whole wake gesture is consumed, including extra fingers, swipes, and
+  delayed clicks, so it cannot activate controls behind the dimming layer.
   Swipes, wake taps, close controls, and passive video playback do not count.
 - The header's **Today** timer shows the accumulated active time for the local
   calendar day, including the current active second and excluding dimmed or
@@ -210,6 +212,9 @@ against the local server below, or pass a deployed URL as its first argument.
 `PLAYWRIGHT_MODULE` can point to an existing Playwright installation. This
 checks both landscape directions, loose-piece dragging, rotation during a
 drag, puzzle completion, return navigation, and the touch-input checks.
+Run `node tests/browser-wake.cjs` with the same setup to check that dim-screen
+taps, multi-touch, swipes, and delayed clicks only wake the app, while the next
+gesture works normally.
 
 ```bash
 python3 -m http.server 8642

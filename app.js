@@ -95,6 +95,10 @@ let suppressTouchClicksUntil = 0;
 let puzzleCompleting = false;
 let puzzleSuccessTimer = null;
 let audioContext = null;
+const downPointers = new Set();
+const wakePointers = new Set();
+let wakingGesture = false;
+let suppressWakeClick = false;
 
 function saveScreenTime() {
   try {
@@ -140,6 +144,62 @@ function recordInteraction(now = Date.now()) {
 function wakeIdleScreen(now = Date.now()) {
   lastInteractionAt = now;
   idleDim.hidden = true;
+}
+
+function consumeWakeEvent(event) {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
+function guardWakePointer(event) {
+  const down = event.type === "pointerdown";
+  const ended = event.type === "pointerup" || event.type === "pointercancel";
+  if (down) {
+    downPointers.add(event.pointerId);
+    if (!wakingGesture) {
+      // A fresh gesture is immediately usable, including a reused mouse ID.
+      wakePointers.delete(event.pointerId);
+      suppressWakeClick = false;
+    }
+  }
+  if (!idleDim.hidden && event.type !== "pointercancel" && downPointers.has(event.pointerId)) {
+    wakingGesture = true;
+    wakePointers.clear();
+    downPointers.forEach((pointerId) => wakePointers.add(pointerId));
+    wakeIdleScreen();
+  }
+  if (wakingGesture && down) wakePointers.add(event.pointerId);
+  if (wakingGesture) {
+    suppressWakeClick = true;
+    consumeWakeEvent(event);
+    if (down) {
+      // Keep releases aimed at a stable element after the dim layer hides,
+      // even if a mouse or finger moves outside its original target.
+      try { document.documentElement.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+  }
+  if (ended) {
+    downPointers.delete(event.pointerId);
+    if (!downPointers.size) wakingGesture = false;
+  }
+}
+
+function guardWakeClick(event) {
+  const dimmed = !idleDim.hidden;
+  if (dimmed) wakeIdleScreen();
+  if (dimmed || wakingGesture || wakePointers.has(event.pointerId)
+    || (suppressWakeClick && event.detail !== 0)) {
+    // WebViews can retarget a delayed compatibility click to a button behind
+    // the removed layer. Keep its pointer ID blocked after all fingers lift.
+    // Clicks without a pointer (keyboard/assistive tech) can wake the screen
+    // too, and their next activation remains available.
+    consumeWakeEvent(event);
+  }
+}
+
+function releaseWakeGesture() {
+  downPointers.clear();
+  wakingGesture = false;
 }
 
 function stopPlaybackForLimit() {
@@ -859,10 +919,13 @@ closeBtn.addEventListener("pointercancel", cancelHold);
 
 // Swallow taps on the video and any long-press context menus.
 shield.addEventListener("pointerdown", (e) => e.preventDefault());
-idleDim.addEventListener("pointerdown", (event) => {
-  event.preventDefault();
-  wakeIdleScreen();
+// This capture guard must run before the normal tile and puzzle handlers.
+// Waking removes the visual dim immediately, but consumes the entire gesture.
+["pointerdown", "pointermove", "pointerup", "pointercancel"].forEach((type) => {
+  document.addEventListener(type, guardWakePointer, { capture: true, passive: false });
 });
+document.addEventListener("click", guardWakeClick, { capture: true });
+window.addEventListener("blur", releaseWakeGesture);
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 // Observe contacts at document level so native scrolling can cancel tile
 // candidates, and so the one puzzle finger that demonstrates drag intent
@@ -885,8 +948,10 @@ pageTabs.forEach((tab) => {
 window.addEventListener("resize", positionPages);
 window.screen?.orientation?.addEventListener("change", positionPages);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) stopCounting();
-  else if (timeLimit.hidden) showIdleDim();
+  if (document.hidden) {
+    releaseWakeGesture();
+    stopCounting();
+  } else if (timeLimit.hidden) showIdleDim();
 });
 
 init();
