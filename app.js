@@ -6,6 +6,9 @@ const HOLD_MS = 1200;
 const TAP_SLOP_PX = 12;
 const TAP_MAX_MS = 700;
 const TAP_ARBITRATION_MS = 90;
+const PLAYBACK_CHECK_MS = 250;
+const PLAYBACK_BUFFER_MS = 30000;
+const MAX_PLAYBACK_MS = 4 * 60 * 1000;
 // CSS-pixel contact geometry is optional. These deliberately conservative
 // limits reject only contacts much broader than a toddler fingertip.
 const BROAD_CONTACT_MAJOR_PX = 70;
@@ -45,9 +48,11 @@ const pageTabs = document.querySelectorAll("[data-page-target]");
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
 // then reused via loadVideoById — recreating it per tap costs seconds on
-// the tablet. "A video is open" is tracked by overlay.hidden alone.
+// the tablet. Each selection owns its playback guards until it closes.
 let player = null;
+let playerReady = false;
 let watchdog = null;
+let activePlayback = null;
 
 function localDay(now = new Date()) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -645,6 +650,8 @@ function speakFallback(name) {
 async function play(animal) {
   if (!overlay.hidden) return;
 
+  const playback = { videoId: animal.videoId, started: false, lastTime: 0, duration: 0 };
+  activePlayback = playback;
   loadingImg.src = animal.image;
   loadingImg.style.filter = hueFilter(animal);
   loadingName.textContent = animal.name;
@@ -656,12 +663,19 @@ async function play(animal) {
   // If the video never reaches PLAYING (embed blocked, network down,
   // endless ad weirdness), bail back to the grid.
   armWatchdog(20000);
+  // These guards survive repeated PLAYING/BUFFERING events. Shorts must
+  // return to the grid even when YouTube loops without sending ENDED.
+  playback.limit = setTimeout(closePlayer, MAX_PLAYBACK_MS);
+  playback.check = setInterval(checkPlayback, PLAYBACK_CHECK_MS);
 
   await apiReady;
-  if (overlay.hidden) return; // closed while the API was still loading
+  if (activePlayback !== playback) return; // closed or replaced while loading
 
   if (player) {
-    player.loadVideoById(animal.videoId);
+    if (playerReady) {
+      player.setLoop(false);
+      player.loadVideoById(animal.videoId);
+    }
     return;
   }
 
@@ -669,6 +683,7 @@ async function play(animal) {
     videoId: animal.videoId,
     playerVars: {
       autoplay: 1,
+      loop: 0,
       playsinline: 1,
       controls: 0,
       disablekb: 1,
@@ -677,25 +692,77 @@ async function play(animal) {
       iv_load_policy: 3,
     },
     events: {
-      onReady: (e) => e.target.playVideo(),
+      onReady: (e) => {
+        playerReady = true;
+        e.target.setLoop(false);
+        if (!activePlayback) {
+          e.target.stopVideo();
+        } else if (activePlayback === playback) {
+          e.target.playVideo();
+        } else {
+          e.target.loadVideoById(activePlayback.videoId);
+        }
+      },
       onStateChange: (e) => {
-        if (e.data === YT.PlayerState.PLAYING) {
-          if (overlay.hidden) {
-            // Closed before the first player finished initializing.
+        if (!activePlayback) {
+          if (e.data === YT.PlayerState.PLAYING) {
             try { e.target.stopVideo(); } catch (_) {}
-            return;
           }
+          return;
+        }
+        if (e.data === YT.PlayerState.PLAYING) {
+          activePlayback.started = true;
           clearTimeout(watchdog);
           loading.hidden = true;
+          checkPlayback();
         } else if (e.data === YT.PlayerState.BUFFERING) {
-          armWatchdog(30000); // making progress — allow a slow network more time
+          armWatchdog(PLAYBACK_BUFFER_MS);
         } else if (e.data === YT.PlayerState.ENDED) {
-          if (!overlay.hidden) closePlayer();
+          if (activePlayback.started) closePlayer();
         }
       },
       onError: () => closePlayer(),
     },
   });
+}
+
+function checkPlayback() {
+  const playback = activePlayback;
+  if (!playback?.started || !playerReady) return;
+
+  let state, currentTime, duration;
+  try {
+    state = player.getPlayerState();
+    currentTime = player.getCurrentTime();
+    duration = player.getDuration();
+  } catch (_) {
+    // The fixed maximum still closes playback if the iframe stops responding.
+    return;
+  }
+
+  if (state === YT.PlayerState.ENDED) {
+    closePlayer();
+    return;
+  }
+  if (state !== YT.PlayerState.PLAYING) return;
+
+  // Metadata can arrive after PLAYING. Set this deadline once per selection;
+  // restarting the short must never grant it another full playback window.
+  if (!playback.duration && Number.isFinite(duration) && duration > 0) {
+    playback.duration = duration;
+    playback.deadline = setTimeout(closePlayer, duration * 1000 + PLAYBACK_BUFFER_MS);
+  }
+  if (!Number.isFinite(currentTime) || currentTime < 0) return;
+  if (
+    (playback.duration > 0 && currentTime >= playback.duration)
+    // The shield prevents seeking. A substantial backwards jump is a replay,
+    // while small timestamp corrections during buffering are harmless.
+    || currentTime + 1 < playback.lastTime
+  ) {
+    closePlayer();
+    return;
+  }
+  playback.lastTime = currentTime;
 }
 
 function armWatchdog(ms) {
@@ -704,11 +771,18 @@ function armWatchdog(ms) {
 }
 
 function closePlayer() {
+  // Stop events can arrive synchronously. Invalidate this selection first so
+  // they cannot re-enter closePlayer or revive a canceled API request.
+  overlay.hidden = true;
+  const playback = activePlayback;
+  activePlayback = null;
   clearTimeout(watchdog);
+  clearTimeout(playback?.limit);
+  clearTimeout(playback?.deadline);
+  clearInterval(playback?.check);
   if (player) {
     try { player.stopVideo(); } catch (_) { /* not ready yet */ }
   }
-  overlay.hidden = true;
 }
 
 // Parent escape hatch: the ✕ only works when held for HOLD_MS,

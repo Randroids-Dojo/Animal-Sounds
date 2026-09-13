@@ -40,6 +40,10 @@ The videos come from this YouTube playlist:
   click through to YouTube.
 - The video auto-returns to the grid when it ends, errors, or never starts
   (watchdog timeout).
+- Each video plays once. Looping is explicitly disabled, and the app also
+  checks playback progress in case YouTube misses the end event or restarts a
+  short. A fixed timeout allows the clip's duration plus 30 seconds for
+  buffering. An absolute four-minute maximum also covers unavailable metadata.
 - Parent escape hatch: **hold the ✕ in the top-right corner for about 1.2
   seconds** (`HOLD_MS` in app.js) while a video is playing. Quick taps do
   nothing.
@@ -193,6 +197,8 @@ Test with the kiosk locked:
       the hidden fixed-corner gesture plus the PIN should do so.
 
 ## Local development
+
+Run the touch-input and playback regression checks with `node --test tests/*.test.js`.
 
 ```bash
 python3 -m http.server 8642
