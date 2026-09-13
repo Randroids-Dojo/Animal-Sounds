@@ -3,6 +3,8 @@
    theme-color meta and manifest.json — keep those in sync. */
 
 :root {
+  --play-width: 100vw;
+  --play-height: 100dvh;
   --sky: #DFF1F7;          /* page background */
   --ink: #3B3560;          /* text */
   --ink-shadow: rgba(59, 53, 96, 0.12);
@@ -71,7 +73,7 @@ body::after {
 
 #pages {
   display: flex;
-  width: 200vw;
+  width: calc(var(--play-width) * 2);
 }
 
 /* The puzzle is a fixed play surface: no browser pan, pinch, or page scroll
@@ -79,8 +81,27 @@ body::after {
 body[data-page="puzzle"] {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: 100dvh;
+  width: var(--play-width);
+  height: var(--play-height);
   overflow: hidden;
+}
+
+/* Keep the physical play surface in portrait even when a kiosk WebView
+   rejects screen.orientation.lock(). Its fixed drag ghosts rotate with it. */
+body[data-page="puzzle"][data-portrait-rotation="90"],
+body[data-page="puzzle"][data-portrait-rotation="-90"] {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+body[data-page="puzzle"][data-portrait-rotation="90"] {
+  transform: translateX(100vw) rotate(90deg);
+}
+
+body[data-page="puzzle"][data-portrait-rotation="-90"] {
+  transform: translateY(100dvh) rotate(-90deg);
 }
 
 body[data-page="puzzle"] #page-viewport {
@@ -93,8 +114,8 @@ body[data-page="puzzle"] #pages {
 }
 
 .app-screen {
-  width: 100vw;
-  flex: 0 0 100vw;
+  width: var(--play-width);
+  flex: 0 0 var(--play-width);
   min-width: 0;
 }
 
@@ -127,7 +148,7 @@ body[data-page="puzzle"] #pages {
 }
 
 #page-tabs button {
-  min-width: min(38vw, 180px);
+  min-width: min(calc(var(--play-width) * 0.38), 180px);
   min-height: 54px;
   border: 2px solid rgba(59, 53, 96, 0.14);
   border-radius: 999px;
@@ -243,7 +264,7 @@ body[data-page="puzzle"] #pages {
 
 .puzzle-heading h2 {
   margin: 2px 0 0;
-  font-size: clamp(1.45rem, 5vw, 2.2rem);
+  font-size: clamp(1.45rem, calc(var(--play-width) * 0.05), 2.2rem);
 }
 
 .puzzle-heading span {
@@ -258,12 +279,12 @@ body[data-page="puzzle"] #pages {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 5px;
-  width: min(80vw, 360px, calc((100dvh - 250px) / 2));
+  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - 250px) / 2));
   margin-inline: auto;
 }
 
 .puzzle-section > h3 {
-  width: min(80vw, 360px, calc((100dvh - 250px) / 2));
+  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - 250px) / 2));
   margin: 10px auto 5px;
   color: #635A91;
   font-size: 0.76rem;
@@ -369,10 +390,10 @@ body[data-page="puzzle"] #pages {
 #puzzle-success {
   position: absolute;
   left: 50%;
-  top: clamp(120px, 30vw, 190px);
+  top: clamp(120px, calc(var(--play-width) * 0.3), 190px);
   z-index: 50;
-  width: min(86vw, 390px);
-  height: min(86vw, 390px);
+  width: min(calc(var(--play-width) * 0.86), 390px);
+  height: min(calc(var(--play-width) * 0.86), 390px);
   pointer-events: none;
   transform: translateX(-50%);
 }
@@ -385,7 +406,7 @@ body[data-page="puzzle"] #pages {
   bottom: 48%;
   width: max-content;
   color: var(--cream);
-  font-size: clamp(2rem, 8vw, 3.5rem);
+  font-size: clamp(2rem, calc(var(--play-width) * 0.08), 3.5rem);
   line-height: 1;
   opacity: 0;
   text-shadow: 0 4px 0 #635A91, 0 9px 18px rgba(20, 18, 39, 0.32);
@@ -401,7 +422,7 @@ body[data-page="puzzle"] #pages {
   left: 50%;
   bottom: 37%;
   color: #FFD24D;
-  font-size: clamp(4.4rem, 20vw, 7rem);
+  font-size: clamp(4.4rem, calc(var(--play-width) * 0.2), 7rem);
   line-height: 1;
   opacity: 0;
   text-shadow: 0 4px 0 #E7A72A, 0 9px 18px rgba(59, 53, 96, 0.25);

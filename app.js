@@ -45,6 +45,7 @@ const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
 const pages = document.getElementById("pages");
 const pageTabs = document.querySelectorAll("[data-page-target]");
+let playViewport = { width: 0, height: 0, rotation: 0 };
 
 // One YT.Player for the app's lifetime: created lazily on the first tap,
 // then reused via loadVideoById — recreating it per tap costs seconds on
@@ -446,10 +447,11 @@ function placePuzzlePiece(piece, slot) {
 }
 
 function leavePuzzlePiece(piece, event, offsetX, offsetY) {
-  const screenRect = puzzleScreen.getBoundingClientRect();
-  const pieceRect = piece.getBoundingClientRect();
-  const left = Math.min(Math.max(0, event.clientX - offsetX - screenRect.left), screenRect.width - pieceRect.width);
-  const top = Math.min(Math.max(0, event.clientY - offsetY - screenRect.top), screenRect.height - pieceRect.height);
+  const screenRect = puzzleRect(puzzleScreen);
+  const pieceRect = puzzleRect(piece);
+  const point = puzzlePoint(event.clientX, event.clientY);
+  const left = Math.min(Math.max(0, point.x - offsetX - screenRect.left), screenRect.width - pieceRect.width);
+  const top = Math.min(Math.max(0, point.y - offsetY - screenRect.top), screenRect.height - pieceRect.height);
   resetDraggedPiece(piece);
   piece.classList.add("dropped");
   piece.style.left = `${left}px`;
@@ -477,8 +479,9 @@ function movePuzzlePiece(event) {
     puzzleDrag.moved = true;
     recordInteraction();
   }
-  ghost.style.left = `${event.clientX - offsetX}px`;
-  ghost.style.top = `${event.clientY - offsetY}px`;
+  const point = puzzlePoint(event.clientX, event.clientY);
+  ghost.style.left = `${point.x - offsetX}px`;
+  ghost.style.top = `${point.y - offsetY}px`;
 }
 
 function endPuzzleDrag(event) {
@@ -514,14 +517,15 @@ function claimPuzzleDrag(candidate, event) {
   ghost.style.width = `${rect.width}px`;
   ghost.style.height = `${rect.height}px`;
   document.body.append(ghost);
+  const start = puzzlePoint(candidate.startX, candidate.startY);
   puzzleDrag = {
     piece,
     ghost,
     pointerId: event.pointerId,
     startX: candidate.startX,
     startY: candidate.startY,
-    offsetX: candidate.startX - rect.left,
-    offsetY: candidate.startY - rect.top,
+    offsetX: start.x - rect.left,
+    offsetY: start.y - rect.top,
     moved: event.pointerType === "touch",
   };
   piece.setPointerCapture(event.pointerId);
@@ -540,7 +544,7 @@ function beginPuzzleDrag(event) {
 
   const candidate = TouchIntent.beginCandidate(event, {
     piece,
-    rect: piece.getBoundingClientRect(),
+    rect: puzzleRect(piece),
   });
   if (event.pointerType === "mouse") claimPuzzleDrag(candidate, event);
   else puzzleDragCandidates.set(event.pointerId, candidate);
@@ -604,18 +608,63 @@ function playSuccessChime() {
 }
 
 function showPage(page) {
+  const changed = document.body.dataset.page !== page;
   cancelTileTaps();
   if (page !== "puzzle") cancelPuzzleDrag();
   document.body.dataset.page = page;
   positionPages();
+  if (changed) {
+    // Installed browsers may support a native lock. FreeKiosk's WebView does
+    // not, so the portrait play surface below also works without this API.
+    try {
+      if (page === "puzzle") window.screen?.orientation?.lock?.("portrait")?.catch(() => {});
+      else window.screen?.orientation?.unlock?.();
+    } catch (_) { /* The portrait surface remains available. */ }
+  }
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
   });
 }
 
 function positionPages() {
-  const offset = document.body.dataset.page === "puzzle" ? -window.innerWidth : 0;
+  const puzzle = document.body.dataset.page === "puzzle";
+  const landscape = window.innerWidth > window.innerHeight;
+  const orientation = window.screen?.orientation;
+  const reverse = orientation?.type === "landscape-secondary"
+    || (!orientation?.type && window.orientation === -90);
+  const rotation = puzzle && landscape ? (reverse ? -90 : 90) : 0;
+  const width = rotation ? window.innerHeight : window.innerWidth;
+  const height = rotation ? window.innerWidth : window.innerHeight;
+  if (rotation !== playViewport.rotation || width !== playViewport.width || height !== playViewport.height) {
+    cancelPuzzleDrag();
+  }
+  playViewport = { width, height, rotation };
+  document.body.dataset.portraitRotation = String(rotation);
+  document.body.style.setProperty("--play-width", `${width}px`);
+  document.body.style.setProperty("--play-height", `${height}px`);
+  const offset = puzzle ? -width : 0;
   pages.style.transform = `translateX(${offset}px)`;
+}
+
+// Pointer events and hit testing use the physical viewport. Drag ghosts and
+// loose pieces use the portrait body's coordinates, including in WebViews
+// that cannot prevent Android from rotating the window itself.
+function puzzlePoint(x, y) {
+  if (playViewport.rotation === 90) return { x: y, y: window.innerWidth - x };
+  if (playViewport.rotation === -90) return { x: window.innerHeight - y, y: x };
+  return { x, y };
+}
+
+function puzzleRect(element) {
+  const rect = element.getBoundingClientRect();
+  const start = puzzlePoint(rect.left, rect.top);
+  const end = puzzlePoint(rect.right, rect.bottom);
+  return {
+    left: Math.min(start.x, end.x),
+    top: Math.min(start.y, end.y),
+    width: Math.abs(end.x - start.x),
+    height: Math.abs(end.y - start.y),
+  };
 }
 
 // Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3,
@@ -834,6 +883,7 @@ pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });
 window.addEventListener("resize", positionPages);
+window.screen?.orientation?.addEventListener("change", positionPages);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopCounting();
   else if (timeLimit.hidden) showIdleDim();

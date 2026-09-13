@@ -29,6 +29,11 @@ The videos come from this YouTube playlist:
   stationary palm, belly, or extra finger cannot block the finger doing the
   puzzle. Pieces remain where they are released until moved again or placed in
   their matching spot.
+- The Puzzle tab stays in portrait when the device turns. It requests a native
+  orientation lock where supported, and counter-rotates its play surface in
+  kiosk WebViews that reject the lock. Piece sizes and completed slots stay
+  intact; rotating during a drag releases the piece safely. Returning to Sounds
+  restores the browser's normal orientation.
 - Touch input is arbitrated one intentional pointer at a time. Animal taps must
   be brief, stationary fingertip-sized contacts; simultaneous candidates are
   considered together for 90 ms and only the best candidate is committed.
@@ -199,6 +204,12 @@ Test with the kiosk locked:
 ## Local development
 
 Run the touch-input and playback regression checks with `node --test tests/*.test.js`.
+
+With Playwright and Chrome available, run `node tests/browser-orientation.cjs`
+against the local server below, or pass a deployed URL as its first argument.
+`PLAYWRIGHT_MODULE` can point to an existing Playwright installation. This
+checks both landscape directions, loose-piece dragging, rotation during a
+drag, puzzle completion, return navigation, and the touch-input checks.
 
 ```bash
 python3 -m http.server 8642
