@@ -99,6 +99,7 @@
       pointerType: "mouse",
       pointerId: 1,
       detail: 1,
+      ...horsePoint,
     }));
     check("mouse click remains available", window.__playedAnimals.join(",") === "Horse");
 

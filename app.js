@@ -154,8 +154,22 @@ function consumeWakeEvent(event) {
   event.stopImmediatePropagation();
 }
 
+function safeEdge() {
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--safe-edge")) || 0;
+}
+
+// Physical viewport coordinates. The grip band is equally wide on every side,
+// so the counter-rotated puzzle surface shares the same band.
+function inSafeArea(x, y) {
+  const edge = safeEdge();
+  return x < edge || y < edge || x >= window.innerWidth - edge || y >= window.innerHeight - edge;
+}
+
 function guardWakePointer(event) {
   const down = event.type === "pointerdown";
+  // The band itself swallows touches on the pages. Above the dim layer it
+  // must also keep a resting grip from waking the screen.
+  if (down && inSafeArea(event.clientX, event.clientY)) return;
   const ended = event.type === "pointerup" || event.type === "pointercancel";
   if (down) {
     downPointers.add(event.pointerId);
@@ -188,6 +202,11 @@ function guardWakePointer(event) {
 }
 
 function guardWakeClick(event) {
+  // Keyboard and assistive clicks report detail 0 and no real position.
+  if (event.detail !== 0 && inSafeArea(event.clientX, event.clientY)) {
+    consumeWakeEvent(event);
+    return;
+  }
   const dimmed = !idleDim.hidden;
   if (dimmed) wakeIdleScreen();
   if (dimmed || wakingGesture || wakePointers.has(event.pointerId)
@@ -574,8 +593,14 @@ function leavePuzzlePiece(piece, event, offsetX, offsetY) {
   const screenRect = puzzleRect(puzzleScreen);
   const pieceRect = puzzleRect(piece);
   const point = puzzlePoint(event.clientX, event.clientY);
-  const left = Math.min(Math.max(0, point.x - offsetX - screenRect.left), screenRect.width - pieceRect.width);
-  const top = Math.min(Math.max(0, point.y - offsetY - screenRect.top), screenRect.height - pieceRect.height);
+  // Keep loose pieces fully clear of the grip band so they stay grabbable.
+  const edge = safeEdge();
+  const minLeft = Math.max(0, edge - screenRect.left);
+  const minTop = Math.max(0, edge - screenRect.top);
+  const maxLeft = Math.min(screenRect.width, playViewport.width - edge - screenRect.left) - pieceRect.width;
+  const maxTop = Math.min(screenRect.height, playViewport.height - edge - screenRect.top) - pieceRect.height;
+  const left = Math.min(Math.max(minLeft, point.x - offsetX - screenRect.left), maxLeft);
+  const top = Math.min(Math.max(minTop, point.y - offsetY - screenRect.top), maxTop);
   resetDraggedPiece(piece);
   piece.classList.add("dropped");
   piece.style.left = `${left}px`;
@@ -1116,6 +1141,15 @@ shield.addEventListener("pointerdown", (e) => e.preventDefault());
 document.addEventListener("click", guardWakeClick, { capture: true });
 window.addEventListener("blur", releaseWakeGesture);
 document.addEventListener("contextmenu", (e) => e.preventDefault());
+// Fingers sliding along the grip band alone must not scroll the page. The
+// band keeps the page's touch-action, because touch-action: none there would
+// also stop another finger from scrolling while a hand holds the tablet.
+const safeBands = [...document.querySelectorAll("#safe-area > div")];
+safeBands.forEach((band) => {
+  band.addEventListener("touchmove", (event) => {
+    if ([...event.touches].every((touch) => safeBands.includes(touch.target))) event.preventDefault();
+  }, { passive: false });
+});
 // Observe contacts at document level so native scrolling can cancel tile
 // candidates, and so each puzzle finger that demonstrates drag intent keeps
 // its own piece while resting contacts are ignored.

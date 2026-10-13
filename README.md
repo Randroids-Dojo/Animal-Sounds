@@ -62,6 +62,12 @@ The videos come from this YouTube playlist:
   Long holds, broad contacts (when the WebView reports contact geometry),
   canceled pointers, and every non-winning contact are ignored. Mouse,
   keyboard, and assistive-technology activation continue to use native clicks.
+- Every page has a 48 px grip band along all four screen edges (`--safe-edge`
+  in `style.css`). Touches that start there do nothing: no taps, puzzle drags,
+  page swipes, or waking the dimmed screen. Page content is inset to stay clear
+  of it, scrolling tiles pass beneath it, loose puzzle pieces are kept out of
+  it, and the video's hold-to-close button sits inside it. A hand resting in the
+  band does not stop the other hand from tapping or scrolling.
 - Playback uses the official YouTube IFrame API. An invisible "tap shield"
   covers the video so little fingers can't pause it, open related videos, or
   click through to YouTube.
@@ -224,6 +230,9 @@ Test with the kiosk locked:
       own finger, and lifting one must not drop the other.
 - [ ] Leave a piece on a slot it does not match; it must stay there, shake
       slightly, and fade out a faint red glow.
+- [ ] Hold the tablet with thumbs on the screen edges on every tab; nothing
+      should tap, drag, or scroll, and the other hand should still tap and
+      scroll normally.
 - [ ] Start an upward swipe on an animal tile — the grid must scroll instead
       of opening that tile.
 - [ ] Verify that repeated taps on tiles do not open FreeKiosk settings; only
@@ -245,6 +254,10 @@ Run `node tests/browser-multitouch.cjs` with the same setup to drag two pieces
 at once with real touch input in portrait and landscape, lift one finger while
 the other keeps dragging, and measure the wrong-slot shake and glow frame by
 frame.
+Run `node tests/browser-safe-area.cjs` with the same setup to check the grip
+band on every page: edge taps, swipes, drags, and wake taps do nothing, while
+tiles just inside it, a second hand's taps and scrolls, and puzzle drags still
+work in both orientations.
 
 ```bash
 python3 -m http.server 8642

@@ -66,7 +66,8 @@ const path = require("node:path");
       const start = await center(piece);
       await move(start);
       await page.mouse.down();
-      const loosePoint = { x: rotation === 90 ? 80 : 1260, y: 400 };
+      // Clear of the grip band, which would nudge the piece inward.
+      const loosePoint = { x: rotation === 90 ? 140 : 1200, y: 400 };
       await move(loosePoint);
       const ghostCenter = await center(page.locator(".puzzle-piece.dragging"));
       assert.ok(Math.hypot(ghostCenter.x - loosePoint.x, ghostCenter.y - loosePoint.y) < 1, "ghost follows the finger in landscape");

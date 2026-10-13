@@ -5,6 +5,8 @@
 :root {
   --play-width: 100vw;
   --play-height: 100dvh;
+  /* Width of the grip band around every page; see #safe-area. */
+  --safe-edge: 48px;
   --sky: #DFF1F7;          /* page background */
   --ink: #3B3560;          /* text */
   --ink-shadow: rgba(59, 53, 96, 0.12);
@@ -54,7 +56,7 @@ body::after {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  padding: 10px 18px 2px;
+  padding: calc(var(--safe-edge) + 2px) var(--safe-edge) 2px;
 }
 
 .topbar h1 {
@@ -117,7 +119,25 @@ body[data-page="puzzle"] #pages {
   width: var(--play-width);
   flex: 0 0 var(--play-width);
   min-width: 0;
+  padding: 0 var(--safe-edge) var(--safe-edge);
 }
+
+/* Grip band: touches within --safe-edge of any screen edge do nothing, so
+   hands holding the tablet cannot tap, scroll, or drag. Pages keep their
+   content inside it, and scrolling content passes beneath it. */
+#safe-area > div {
+  position: fixed;
+  z-index: 9;
+  background: var(--sky);
+}
+
+#safe-area > :nth-child(1) { inset: 0 0 auto; height: var(--safe-edge); }
+#safe-area > :nth-child(2) { inset: auto 0 0; height: var(--safe-edge); }
+#safe-area > :nth-child(3) { inset: 0 auto 0 0; width: var(--safe-edge); }
+#safe-area > :nth-child(4) { inset: 0 0 0 auto; width: var(--safe-edge); }
+
+/* The puzzle never scrolls, so its gradient can show through the band. */
+body[data-page="puzzle"] #safe-area > div { background: none; }
 
 #daily-time {
   display: flex;
@@ -246,9 +266,15 @@ body[data-page="puzzle"] #pages {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 4px 14px 24px;
+  padding: 4px var(--safe-edge) var(--safe-edge);
   background: linear-gradient(155deg, #E3DCFA 0%, var(--sky) 48%, #C9EDD3 100%);
   touch-action: none;
+  --puzzle-width: min(
+    calc(var(--play-width) * 0.8),
+    calc(var(--play-width) - 2 * var(--safe-edge) - 28px),
+    360px,
+    calc((var(--play-height) - var(--header-height, 100px) - 152px - var(--safe-edge)) / 2)
+  );
 }
 
 .puzzle-heading {
@@ -281,12 +307,12 @@ body[data-page="puzzle"] #pages {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 5px;
-  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - var(--header-height, 100px) - 160px) / 2));
+  width: var(--puzzle-width);
   margin-inline: auto;
 }
 
 .puzzle-section > h3 {
-  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - var(--header-height, 100px) - 160px) / 2));
+  width: var(--puzzle-width);
   margin: 10px auto 5px;
   color: #635A91;
   font-size: 0.76rem;
@@ -598,8 +624,8 @@ body[data-page="puzzle"] #pages {
    always matches the hold time. */
 #close-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: calc(var(--safe-edge) + 10px);
+  right: calc(var(--safe-edge) + 10px);
   z-index: 13;
   width: 44px;
   height: 44px;
