@@ -25,6 +25,7 @@ const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
+let dinosaurs = [];
 
 const grid = document.getElementById("grid");
 const overlay = document.getElementById("overlay");
@@ -86,7 +87,8 @@ let countingSince = null;
 let lastInteractionAt = Date.now();
 let currentPuzzleAnimal = null;
 let puzzlePlaced = 0;
-let puzzleDrag = null;
+// Active drags keyed by pointer ID, so each finger can carry its own piece.
+const puzzleDrags = new Map();
 const puzzleDragCandidates = new Map();
 const tileTapCandidates = new Map();
 let pendingTileTaps = [];
@@ -131,6 +133,7 @@ function showIdleDim(now = Date.now()) {
   stopCounting(now);
   cancelTileTaps();
   cancelPuzzleDrag();
+  stopLesson();
   idleDim.hidden = false;
 }
 
@@ -203,8 +206,8 @@ function releaseWakeGesture() {
 }
 
 function stopPlaybackForLimit() {
-  if (currentClip) currentClip.pause();
-  try { speechSynthesis.cancel(); } catch (_) {}
+  stopLesson();
+  stopSpeech();
   closePlayer();
 }
 
@@ -306,6 +309,15 @@ async function init() {
   const res = await fetch("animals.json");
   animals = await res.json();
   renderGrid();
+  const dinosaurResponse = await fetch("dinosaurs.json");
+  dinosaurs = await dinosaurResponse.json();
+  renderGrid(dinosaurs, document.getElementById("dinosaur-grid"));
+  const foodResponse = await fetch("foods.json");
+  renderGrid(await foodResponse.json(), document.getElementById("food-grid"));
+  const alphabetResponse = await fetch("alphabet.json");
+  renderAlphabet(await alphabetResponse.json());
+  renderLessons();
+  showPage("animals");
   newPuzzle();
   showIdleDim();
   updateScreenTime();
@@ -357,7 +369,7 @@ function commitBestTileTap() {
     !candidates.length
     || !overlay.hidden
     || !timeLimit.hidden
-    || document.body.dataset.page !== "animals"
+    || !["animals", "dinosaurs", "foods", "alphabet", "lessons"].includes(document.body.dataset.page)
   ) return;
 
   const winner = candidates.sort(TouchIntent.compareTapCandidates)[0];
@@ -388,8 +400,8 @@ function endTileTap(event) {
   tileTapTimer ||= setTimeout(commitBestTileTap, TAP_ARBITRATION_MS);
 }
 
-function renderGrid() {
-  grid.append(...animals.map((animal) => {
+function renderGrid(entries = animals, container = grid) {
+  container.append(...entries.map((animal) => {
     const tile = document.createElement("button");
     tile.className = "tile";
     tile.type = "button";
@@ -400,22 +412,64 @@ function renderGrid() {
     img.style.filter = hueFilter(animal);
 
     const label = document.createElement("span");
-    label.className = "tile-name";
+    label.className = animal.name.length > 16 ? "tile-name long-name" : "tile-name";
     label.textContent = animal.name;
 
     tile.append(img, label);
-    tile.addEventListener("pointerdown", (event) => beginTileTap(event, tile, animal));
-    tile.addEventListener("click", (event) => {
-      // Touch is resolved from its own pointer ID because browsers may omit a
-      // synthetic click while another contact remains down. Preserve mouse,
-      // keyboard, and assistive-technology activation.
-      if (event.pointerType === "touch") return;
-      if (event.detail !== 0 && Date.now() < suppressTouchClicksUntil) return;
-      recordInteraction();
-      play(animal);
-    });
+    bindTileInput(tile, animal);
     return tile;
   }));
+}
+
+function bindTileInput(tile, animal) {
+  tile.addEventListener("pointerdown", (event) => beginTileTap(event, tile, animal));
+  tile.addEventListener("click", (event) => {
+    // Touch is resolved from its own pointer ID because browsers may omit a
+    // synthetic click while another contact remains down. Preserve mouse,
+    // keyboard, and assistive-technology activation.
+    if (event.pointerType === "touch") return;
+    if (event.detail !== 0 && Date.now() < suppressTouchClicksUntil) return;
+    recordInteraction();
+    play(animal);
+  });
+}
+
+function renderAlphabet(groups) {
+  const container = document.getElementById("alphabet-grid");
+  container.append(...groups.map((group) => {
+    const card = AlphabetCards.create(group);
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "tile alphabet-tile";
+    const image = document.createElement("img");
+    image.alt = "";
+    const label = document.createElement("span");
+    label.className = "tile-name";
+    tile.append(image, label);
+    const update = () => {
+      const item = card.items[card.index];
+      image.src = item.image;
+      label.textContent = `${card.letter}${card.letter.toLowerCase()} ${item.name}`;
+      tile.setAttribute("aria-label", `${card.letter} is for ${item.name}`);
+    };
+    update();
+    bindTileInput(tile, { kind: "alphabet", card, tile, update });
+    return tile;
+  }));
+}
+
+function playAlphabet(entry) {
+  const { card, tile, update } = entry;
+  const item = card.items[card.index];
+  speak(`${card.spokenLetter} is for ${item.spokenName || item.name}`, {
+    audioPath: item.audio,
+    onEnd: () => {
+      AlphabetCards.advance(card);
+      update();
+    },
+    onStop: () => tile.classList.remove("speaking"),
+  });
+  tile.classList.add("speaking");
 }
 
 function shuffled(values) {
@@ -466,13 +520,23 @@ function removeAllDragGhosts() {
 
 function cancelPuzzleDrag() {
   puzzleDragCandidates.clear();
-  if (puzzleDrag) {
-    const { piece, pointerId } = puzzleDrag;
-    if (piece.hasPointerCapture(pointerId)) piece.releasePointerCapture(pointerId);
-    resetDraggedPiece(piece);
-    puzzleDrag = null;
-  }
+  puzzleDrags.forEach((drag, pointerId) => rollBackPuzzleDrag(drag, pointerId));
+  puzzleDrags.clear();
   removeAllDragGhosts();
+}
+
+function rollBackPuzzleDrag({ piece, ghost }, pointerId) {
+  if (piece.hasPointerCapture(pointerId)) piece.releasePointerCapture(pointerId);
+  removeDragGhost(ghost);
+  resetDraggedPiece(piece);
+}
+
+// A wrong slot leaves the piece where it was released, with a short shake
+// and a red glow that fades. Restarting the class replays it on every miss.
+function showPuzzleMismatch(piece) {
+  piece.classList.remove("mismatch");
+  void piece.offsetWidth;
+  piece.classList.add("mismatch");
 }
 
 function completePuzzle() {
@@ -495,7 +559,7 @@ function completePuzzle() {
 function placePuzzlePiece(piece, slot) {
   if (puzzleCompleting || piece.disabled || slot.classList.contains("filled")) return;
   resetDraggedPiece(piece);
-  piece.classList.remove("dropped");
+  piece.classList.remove("dropped", "mismatch");
   ["left", "top", "width", "height"].forEach((property) => piece.style.removeProperty(property));
   slot.append(piece);
   slot.classList.add("filled");
@@ -522,7 +586,8 @@ function leavePuzzlePiece(piece, event, offsetX, offsetY) {
 }
 
 function movePuzzlePiece(event) {
-  if (!puzzleDrag) {
+  const drag = puzzleDrags.get(event.pointerId);
+  if (!drag) {
     const candidate = puzzleDragCandidates.get(event.pointerId);
     if (!candidate) return;
     TouchIntent.updateCandidate(candidate, event);
@@ -532,11 +597,11 @@ function movePuzzlePiece(event) {
       return;
     }
     claimPuzzleDrag(candidate, event);
+    return;
   }
-  if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
-  const { ghost, offsetX, offsetY, startX, startY } = puzzleDrag;
-  if (!puzzleDrag.moved && Math.hypot(event.clientX - startX, event.clientY - startY) > TAP_SLOP_PX) {
-    puzzleDrag.moved = true;
+  const { ghost, offsetX, offsetY, startX, startY } = drag;
+  if (!drag.moved && Math.hypot(event.clientX - startX, event.clientY - startY) > TAP_SLOP_PX) {
+    drag.moved = true;
     recordInteraction();
   }
   const point = puzzlePoint(event.clientX, event.clientY);
@@ -544,19 +609,27 @@ function movePuzzlePiece(event) {
   ghost.style.top = `${point.y - offsetY}px`;
 }
 
+// The dragged piece's faded original may still cover a slot, so look beneath
+// it to find where the finger let go.
+function puzzleSlotAt(x, y, piece) {
+  const target = document.elementsFromPoint(x, y).find((element) => element !== piece);
+  return target?.closest(".puzzle-slot") || null;
+}
+
 function endPuzzleDrag(event) {
   puzzleDragCandidates.delete(event.pointerId);
-  if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
-  const { piece, ghost, offsetX, offsetY } = puzzleDrag;
-  puzzleDrag = null;
+  const drag = puzzleDrags.get(event.pointerId);
+  if (!drag) return;
+  puzzleDrags.delete(event.pointerId);
+  const { piece, ghost, offsetX, offsetY } = drag;
   if (piece.hasPointerCapture(event.pointerId)) piece.releasePointerCapture(event.pointerId);
-  const target = document.elementFromPoint(event.clientX, event.clientY);
-  const slot = target?.closest(".puzzle-slot");
+  const slot = puzzleSlotAt(event.clientX, event.clientY, piece);
   removeDragGhost(ghost);
   if (slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
     placePuzzlePiece(piece, slot);
   } else if (event.type === "pointerup") {
     leavePuzzlePiece(piece, event, offsetX, offsetY);
+    if (slot) showPuzzleMismatch(piece);
   } else {
     resetDraggedPiece(piece);
   }
@@ -564,9 +637,14 @@ function endPuzzleDrag(event) {
 
 function claimPuzzleDrag(candidate, event) {
   const { piece } = candidate;
-  if (puzzleDrag || piece.disabled || puzzleCompleting) return;
-  puzzleDragCandidates.clear();
-  removeAllDragGhosts();
+  puzzleDragCandidates.delete(event.pointerId);
+  if (puzzleDrags.has(event.pointerId) || piece.classList.contains("drag-source")
+    || piece.disabled || puzzleCompleting) return;
+  // Other contacts resting on this piece give it up; contacts on other
+  // pieces stay free to start their own drags.
+  puzzleDragCandidates.forEach((other, pointerId) => {
+    if (other.piece === piece) puzzleDragCandidates.delete(pointerId);
+  });
   const rect = candidate.rect;
   const ghost = piece.cloneNode(false);
   ghost.className = "puzzle-piece dragging";
@@ -578,17 +656,17 @@ function claimPuzzleDrag(candidate, event) {
   ghost.style.height = `${rect.height}px`;
   document.body.append(ghost);
   const start = puzzlePoint(candidate.startX, candidate.startY);
-  puzzleDrag = {
+  puzzleDrags.set(event.pointerId, {
     piece,
     ghost,
-    pointerId: event.pointerId,
     startX: candidate.startX,
     startY: candidate.startY,
     offsetX: start.x - rect.left,
     offsetY: start.y - rect.top,
     moved: event.pointerType === "touch",
-  };
+  });
   piece.setPointerCapture(event.pointerId);
+  piece.classList.remove("mismatch");
   piece.classList.add("drag-source");
   piece.setAttribute("aria-grabbed", "true");
   if (event.pointerType === "touch") recordInteraction();
@@ -600,7 +678,8 @@ function beginPuzzleDrag(event) {
   const piece = event.currentTarget;
   if (piece.disabled || puzzleCompleting) return;
   event.preventDefault();
-  if (puzzleDrag) return;
+  // Another finger already carries this piece and keeps it.
+  if (piece.classList.contains("drag-source")) return;
 
   const candidate = TouchIntent.beginCandidate(event, {
     piece,
@@ -618,6 +697,9 @@ function createPuzzlePiece(animal, index) {
   piece.setAttribute("aria-label", "Puzzle piece");
   stylePuzzlePart(piece, animal, index);
   piece.addEventListener("pointerdown", beginPuzzleDrag);
+  piece.addEventListener("animationend", (event) => {
+    if (event.animationName === "puzzle-mismatch-glow") piece.classList.remove("mismatch");
+  });
   return piece;
 }
 
@@ -673,7 +755,13 @@ function showPage(page) {
   if (page !== "puzzle") cancelPuzzleDrag();
   document.body.dataset.page = page;
   positionPages();
+  document.querySelectorAll(".app-screen").forEach((screen) => {
+    screen.inert = screen.id !== ({ animals: "animal-screen", puzzle: "puzzle-screen", dinosaurs: "dinosaur-screen", foods: "food-screen", alphabet: "alphabet-screen", lessons: "lessons-screen" })[page];
+  });
   if (changed) {
+    stopLesson();
+    stopSpeech();
+    window.scrollTo(0, 0);
     // Installed browsers may support a native lock. FreeKiosk's WebView does
     // not, so the portrait play surface below also works without this API.
     try {
@@ -702,7 +790,9 @@ function positionPages() {
   document.body.dataset.portraitRotation = String(rotation);
   document.body.style.setProperty("--play-width", `${width}px`);
   document.body.style.setProperty("--play-height", `${height}px`);
-  const offset = puzzle ? -width : 0;
+  const headerHeight = document.querySelector(".topbar").offsetHeight;
+  document.body.style.setProperty("--header-height", `${headerHeight}px`);
+  const offset = -width * ({ animals: 0, puzzle: 1, dinosaurs: 2, foods: 3, alphabet: 4, lessons: 5 }[document.body.dataset.page] || 0);
   pages.style.transform = `translateX(${offset}px)`;
 }
 
@@ -731,33 +821,132 @@ function puzzleRect(element) {
 // cached so repeat taps replay instantly.
 const voiceClips = new Map();
 let currentClip = null;
+let speechRequest = 0;
+let speechCleanup = null;
 
-function speak(name) {
-  const slug = name.toLowerCase().replace(/\s+/g, "-");
-  let clip = voiceClips.get(slug);
-  if (!clip) {
-    clip = new Audio(`audio/${slug}.mp3`);
-    voiceClips.set(slug, clip);
+function stopSpeech() {
+  speechRequest += 1;
+  if (currentClip) {
+    currentClip.pause();
+    currentClip.onended = null;
   }
-  if (currentClip) currentClip.pause();
-  currentClip = clip;
-  clip.currentTime = 0;
-  clip.play()?.catch(() => speakFallback(name));
+  speechCleanup?.();
+  speechCleanup = null;
+  try { speechSynthesis.cancel(); } catch (_) {}
 }
 
-function speakFallback(name) {
+function speak(name, { audioPath, onEnd, onStop } = {}) {
+  stopSpeech();
+  const request = speechRequest;
+  speechCleanup = onStop || null;
+  let finished = false;
+  const finish = () => {
+    if (request !== speechRequest || finished) return;
+    finished = true;
+    speechCleanup?.();
+    speechCleanup = null;
+    onEnd?.();
+  };
+  const fail = () => {
+    if (request !== speechRequest || finished) return;
+    finished = true;
+    speechCleanup?.();
+    speechCleanup = null;
+  };
+  const slug = name.toLowerCase().replace(/\s+/g, "-");
+  const source = audioPath || `audio/${slug}.mp3`;
+  let clip = voiceClips.get(source);
+  if (!clip) {
+    clip = new Audio(source);
+    voiceClips.set(source, clip);
+  }
+  currentClip = clip;
+  clip.currentTime = 0;
+  clip.onended = finish;
+  clip.play()?.catch(() => {
+    if (request === speechRequest) speakFallback(name, finish, fail);
+  });
+}
+
+function speakFallback(name, onEnd, onError) {
   try {
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(name);
+    utterance.lang = "en-US";
     utterance.rate = 0.9;
+    utterance.onend = onEnd;
+    utterance.onerror = onError;
     speechSynthesis.speak(utterance);
   } catch (_) {
-    // Speech is a nice-to-have; some WebViews lack it.
+    onError?.();
+    // Keep the current card when neither recording nor speech is available.
   }
 }
 
+let activeLesson = null;
+let lessonAnimation = null;
+
+function renderLessons() {
+  const container = document.getElementById("lesson-grid");
+  container.append(...LessonScenes.lessons.map(lesson => {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "tile";
+    const scene = document.createElement("span");
+    scene.className = "lesson-art";
+    scene.setAttribute("aria-hidden", "true");
+    scene.innerHTML = LessonScenes.markup(lesson.id);
+    const label = document.createElement("span");
+    label.className = "tile-name";
+    label.textContent = lesson.name;
+    tile.append(scene, label);
+    bindTileInput(tile, { ...lesson, scene });
+    return tile;
+  }));
+}
+
+function stopLesson() {
+  if (lessonAnimation !== null) cancelAnimationFrame(lessonAnimation);
+  lessonAnimation = null;
+  if (activeLesson) {
+    stopSpeech();
+    activeLesson.scene.innerHTML = LessonScenes.markup(activeLesson.id);
+  }
+  activeLesson = null;
+}
+
+function playLesson(lesson) {
+  stopLesson();
+  activeLesson = lesson;
+  speak(lesson.name, { audioPath: lesson.audio });
+  const lessonClip = currentClip;
+  const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false;
+  const started = performance.now();
+  const update = (now) => {
+    if (activeLesson !== lesson) return;
+    const elapsed = lessonClip === currentClip && lessonClip.readyState >= 2 && !lessonClip.error && (!lessonClip.paused || lessonClip.ended)
+      ? (lessonClip.ended ? lesson.duration : lessonClip.currentTime) : (now - started) / 1000;
+    const state = LessonScenes.frame(lesson.id, Math.min(lesson.duration, elapsed), reduced);
+    LessonScenes.paint(lesson.scene, lesson.id, state);
+    lessonAnimation = state.done ? null : requestAnimationFrame(update);
+  };
+  update(started);
+}
+
 async function play(animal) {
-  if (!overlay.hidden) return;
+  if (!overlay.hidden || !timeLimit.hidden) return;
+  if (animal.kind === "lesson") {
+    playLesson(animal);
+    return;
+  }
+  if (animal.kind === "alphabet") {
+    playAlphabet(animal);
+    return;
+  }
+  if (animal.kind === "dinosaur" || animal.kind === "food") {
+    speak(animal.name);
+    return;
+  }
 
   const playback = { videoId: animal.videoId, started: false, lastTime: 0, duration: 0 };
   activePlayback = playback;
@@ -928,8 +1117,8 @@ document.addEventListener("click", guardWakeClick, { capture: true });
 window.addEventListener("blur", releaseWakeGesture);
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 // Observe contacts at document level so native scrolling can cancel tile
-// candidates, and so the one puzzle finger that demonstrates drag intent
-// keeps ownership while all other contacts are ignored.
+// candidates, and so each puzzle finger that demonstrates drag intent keeps
+// its own piece while resting contacts are ignored.
 document.addEventListener("pointermove", (event) => {
   updateTileTap(event);
   movePuzzlePiece(event);
@@ -950,6 +1139,8 @@ window.screen?.orientation?.addEventListener("change", positionPages);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     releaseWakeGesture();
+    stopLesson();
+    stopSpeech();
     stopCounting();
   } else if (timeLimit.hidden) showIdleDim();
 });

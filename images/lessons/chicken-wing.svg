@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 410" role="img" aria-label="A cartoon child raises a bent arm and coughs into the inside of their elbow, with their hand away from their face."><g stroke="#3b3544" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="200" cy="386" rx="100" ry="11" fill="#d4d9d0" stroke="none"/>
+      <g data-part="kid">
+        <path d="M160 295v70h31l9-62 9 62h31v-70Z" fill="#5777ad"/>
+        <path d="M158 362h34v18h-53q-2-14 19-18m50 0h34q20 4 19 18h-53Z" fill="#f4bb57"/>
+        <path d="M249 222q25 34 22 63l-7 46" fill="none" stroke="#3b3544" stroke-width="31"/>
+        <path d="M249 222q25 34 22 63l-7 46" fill="none" stroke="#7bbbaa" stroke-width="23"/>
+        <path d="m264 332-2 15" fill="none" stroke="#3b3544" stroke-width="24"/>
+        <path d="m264 332-2 15" fill="none" stroke="#dba27b" stroke-width="17"/>
+        <path d="M145 210q55-30 106 0l-4 94q-45 17-96 0Z" fill="#7bbbaa"/>
+        <path d="M184 166v31q16 17 32 0v-31" fill="#dba27b"/>
+        <path d="M181 200q19 19 38 0" fill="none" stroke="#467d70" stroke-width="4"/>
+        <g data-part="head" transform="rotate(0 200 177)">
+          <ellipse cx="148" cy="126" rx="10" ry="16" fill="#dba27b"/>
+          <ellipse cx="250" cy="126" rx="10" ry="16" fill="#dba27b"/>
+          <path d="M150 98q0-49 49-49t49 49v30q-2 47-49 48-47-1-49-48Z" fill="#dba27b"/>
+          <path d="M149 108q-15-52 22-68 33-16 64 5 24 16 16 61l-12-26q-29 4-43-20-13 23-43 25Z" fill="#614431"/>
+          <path d="M173 119h7m37 0h7" fill="none"/>
+          <path d="m199 123-4 15h10" fill="none" stroke="#b77957" stroke-width="3"/>
+          <path d="M199 153q7 5 14 0" fill="none" stroke="#6e443a" stroke-width="4"/>
+        </g>
+        <g transform="translate(160 214)">
+          <g data-part="upper" transform="rotate(95)">
+            <path d="M0 0H75" fill="none" stroke="#3b3544" stroke-width="34"/>
+            <path d="M0 0H75" fill="none" stroke="#7bbbaa" stroke-width="26"/>
+            <g transform="translate(75 0)">
+              <g data-part="lower" transform="rotate(-30)">
+                <path d="M0 0H48" fill="none" stroke="#3b3544" stroke-width="30"/>
+                <path d="M0 0H48" fill="none" stroke="#7bbbaa" stroke-width="22"/>
+                <path d="M52 0H65" fill="none" stroke="#3b3544" stroke-width="23"/>
+                <path d="M52 0H65" fill="none" stroke="#dba27b" stroke-width="16"/>
+                <path d="M48-10v20" fill="none" stroke="#467d70" stroke-width="3"/>
+              </g>
+              <path d="M-12 3q-1-8 6-10" fill="none" stroke="#467d70" stroke-width="3"/>
+            </g>
+          </g>
+        </g>
+        <g data-part="cough" stroke="#8268aa" stroke-width="4" opacity="0"><path d="m250 163 10-5m-7 18h13m-15 12 10 5" fill="none"/></g>
+      </g></g></svg>

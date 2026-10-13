@@ -73,7 +73,7 @@ body::after {
 
 #pages {
   display: flex;
-  width: calc(var(--play-width) * 2);
+  width: calc(var(--play-width) * 6);
 }
 
 /* The puzzle is a fixed play surface: no browser pan, pinch, or page scroll
@@ -110,7 +110,7 @@ body[data-page="puzzle"] #page-viewport {
 
 body[data-page="puzzle"] #pages {
   height: 100%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-1 * var(--play-width)));
 }
 
 .app-screen {
@@ -143,16 +143,18 @@ body[data-page="puzzle"] #pages {
   grid-column: 1 / -1;
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 6px;
   margin-top: 8px;
 }
 
 #page-tabs button {
-  min-width: min(calc(var(--play-width) * 0.38), 180px);
+  min-width: 0;
+  flex: 1;
+  max-width: 180px;
   min-height: 54px;
   border: 2px solid rgba(59, 53, 96, 0.14);
   border-radius: 999px;
-  padding: 10px 22px;
+  padding: 10px 8px;
   background: rgba(255, 255, 255, 0.5);
   color: var(--ink);
   font: 600 1.05rem/1 inherit;
@@ -165,7 +167,7 @@ body[data-page="puzzle"] #pages {
 
 /* ---------- Tile grid ---------- */
 
-#grid {
+#grid, #dinosaur-grid, #food-grid, #alphabet-grid, #lesson-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 14px;
@@ -173,7 +175,7 @@ body[data-page="puzzle"] #pages {
 }
 
 @media (min-width: 700px) {
-  #grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
+  #grid, #dinosaur-grid, #food-grid, #alphabet-grid, #lesson-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
 }
 
 .tile {
@@ -279,12 +281,12 @@ body[data-page="puzzle"] #pages {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 5px;
-  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - 250px) / 2));
+  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - var(--header-height, 100px) - 160px) / 2));
   margin-inline: auto;
 }
 
 .puzzle-section > h3 {
-  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - 250px) / 2));
+  width: min(calc(var(--play-width) * 0.8), 360px, calc((var(--play-height) - var(--header-height, 100px) - 160px) / 2));
   margin: 10px auto 5px;
   color: #635A91;
   font-size: 0.76rem;
@@ -369,6 +371,30 @@ body[data-page="puzzle"] #pages {
   position: absolute;
   z-index: 3;
   margin: 0;
+}
+
+/* A piece left on the wrong slot shakes a little and glows faint red. */
+.puzzle-piece.mismatch {
+  animation:
+    puzzle-mismatch-shake 0.36s ease-in-out,
+    puzzle-mismatch-glow 0.9s ease-out;
+}
+
+@keyframes puzzle-mismatch-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes puzzle-mismatch-glow {
+  0%, 20% {
+    box-shadow: 0 3px 0 rgba(59, 53, 96, 0.2), 0 0 0 3px rgba(232, 80, 80, 0.4), 0 0 18px 6px rgba(232, 80, 80, 0.35);
+  }
+  100% {
+    box-shadow: 0 3px 0 rgba(59, 53, 96, 0.2), 0 0 0 3px rgba(232, 80, 80, 0), 0 0 18px 6px rgba(232, 80, 80, 0);
+  }
 }
 
 .puzzle-piece.placed {
@@ -658,8 +684,43 @@ body[data-page="puzzle"] #pages {
   .tile:active { animation: none; }
   #loading-img { animation: none; }
   #close-btn { transition: none; }
+  .puzzle-piece.mismatch { animation: puzzle-mismatch-glow 0.9s ease-out; }
   #puzzle-screen.puzzle-complete .puzzle-slot.filled {
     animation: none;
     opacity: 0;
   }
 }
+
+/* Only the current page contributes height and accepts keyboard focus. */
+.app-screen[inert] { visibility: hidden; height: 0; overflow: hidden; }
+.dinosaur-hint { margin: 12px 14px 0; text-align: center; }
+/* Blend white illustration backdrops into each pastel card. Keep blending
+   inside the tile so it cannot interact with the page or dimming layers. */
+#dinosaur-grid .tile { isolation: isolate; }
+#dinosaur-grid .tile img {
+  width: 94%;
+  height: 65%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+#dinosaur-grid .tile-name { font-size: clamp(0.9rem, 2.5vw, 1.2rem); overflow-wrap: anywhere; }
+
+#dinosaur-grid .long-name { font-size: 0.8rem; }
+
+.dinosaur-credits { padding: 0 18px 14px; font-size: 0.75rem; }
+.dinosaur-credits a { color: inherit; }
+.dinosaur-credits li { margin-block: 8px; }
+
+@media (max-width: 500px) {
+  #page-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #page-tabs button { max-width: none; }
+}
+
+#alphabet-grid .tile-name { font-size: clamp(0.95rem, 2.4vw, 1.25rem); line-height: 1.2; }
+#alphabet-grid .tile img { height: 65%; object-fit: contain; }
+.alphabet-tile.speaking { outline: 4px solid var(--ink); outline-offset: -4px; }
+
+
+#lesson-grid { max-width: 720px; margin: 0 auto; }
+#lesson-grid .lesson-art { width: 72%; max-height: 70%; aspect-ratio: 400 / 410; pointer-events: none; }
+#lesson-grid svg { display: block; width: 100%; height: 100%; overflow: visible; }

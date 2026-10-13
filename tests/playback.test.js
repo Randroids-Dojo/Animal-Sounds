@@ -16,6 +16,7 @@ function setup({ duration = 6, apiReady = true } = {}) {
     classList: { add() {}, remove() {} },
     addEventListener() {},
     appendChild() {},
+    querySelector() { return { setAttribute() {} }; },
   });
   const schedule = (callback, ms, interval = 0) => {
     const id = ++timerId;
@@ -47,6 +48,8 @@ function setup({ duration = 6, apiReady = true } = {}) {
     },
     ready() { this.options.events.onReady({ target: this }); },
   };
+  const clips = [];
+  const utterances = [];
   const context = vm.createContext({
     document: {
       head: node(),
@@ -63,7 +66,18 @@ function setup({ duration = 6, apiReady = true } = {}) {
     // Leave the unrelated animal-grid initialization pending. The actual
     // playback code and its API callbacks run unchanged in this context.
     fetch: () => new Promise(() => {}),
-    Audio: class { pause() {} play() { return Promise.resolve(); } },
+    AlphabetCards: require("../alphabet.js"),
+    LessonScenes: require("../lessons.js"),
+    performance: { now: () => now },
+    requestAnimationFrame: callback => schedule(() => callback(now), 16),
+    cancelAnimationFrame: id => timers.delete(id),
+    SpeechSynthesisUtterance: function(text) { this.text = text; },
+    speechSynthesis: { cancel() {}, speak(utterance) { utterances.push(utterance); } },
+    Audio: class {
+      constructor(src) { this.src = src; this.pauses = 0; this.plays = 0; clips.push(this); }
+      pause() { this.pauses += 1; }
+      play() { this.plays += 1; return Promise.resolve(); }
+    },
     YT: {
       Player: function (_slot, options) { player.options = options; return player; },
       PlayerState: { ENDED: 0, PLAYING: 1, BUFFERING: 3 },
@@ -79,6 +93,8 @@ function setup({ duration = 6, apiReady = true } = {}) {
 
   return {
     player,
+    clips,
+    utterances,
     run,
     resolveApi: () => context.window.onYouTubeIframeAPIReady(),
     hidden: () => elements.get("overlay").hidden,
@@ -229,4 +245,169 @@ test("closing marks the overlay closed before stopVideo emits another end", asyn
   };
   app.player.emit(0);
   assert.equal(app.player.stopCalls, 1);
+});
+
+
+test("every dinosaur speaks its full name without opening or creating a video", async () => {
+  const app = setup({ apiReady: false });
+  const dinosaurs = require("../dinosaurs.json");
+  assert.ok(dinosaurs.some((dinosaur) => dinosaur.name === "Tyrannosaurus Rex"));
+  for (const dinosaur of dinosaurs) {
+    assert.ok(fs.existsSync(require("node:path").join(__dirname, "..", dinosaur.image)));
+    await app.run(`play(${JSON.stringify(dinosaur)})`);
+    const audio = `audio/${dinosaur.name.toLowerCase().replace(/\s+/g, "-")}.mp3`;
+    assert.equal(app.clips.at(-1).src, audio);
+    assert.ok(fs.statSync(require("node:path").join(__dirname, "..", audio)).size > 0);
+    assert.equal(app.hidden(), true);
+    assert.equal(app.run("activePlayback"), null);
+    assert.equal(app.player.options, undefined);
+  }
+});
+
+test("repeat dinosaur taps restart the recording and new names stop the old one", async () => {
+  const app = setup();
+  const [first, second] = require("../dinosaurs.json");
+  await app.run(`play(${JSON.stringify(first)})`);
+  app.clips[0].currentTime = 0.5;
+  await app.run(`play(${JSON.stringify(first)})`);
+  assert.equal(app.clips.length, 1);
+  assert.equal(app.clips[0].plays, 2);
+  assert.equal(app.clips[0].currentTime, 0);
+  const pauses = app.clips[0].pauses;
+  await app.run(`play(${JSON.stringify(second)})`);
+  assert.ok(app.clips[0].pauses > pauses);
+  assert.equal(app.clips[1].plays, 1);
+});
+
+test("a canceled recording failure cannot speak after another name or screen-time lock", async () => {
+  const app = setup();
+  app.run("globalThis.fallbacks = []; speakFallback = (name) => fallbacks.push(name)");
+  await app.run('speak("Triceratops")');
+  app.clips[0].play = () => Promise.reject(new Error("missing recording"));
+  app.run('speak("Triceratops"); speak("Stegosaurus")');
+  await Promise.resolve();
+  assert.equal(app.run("fallbacks.length"), 0);
+  app.run('speak("Triceratops"); stopPlaybackForLimit()');
+  await Promise.resolve();
+  assert.equal(app.run("fallbacks.length"), 0);
+});
+
+
+test("foods start with Tomato and Potato and only speak their names", async () => {
+  const app = setup({ apiReady: false });
+  const foods = require("../foods.json");
+  assert.deepEqual(foods.slice(0, 2).map(food => food.name), ["Tomato", "Potato"]);
+  for (const food of foods) {
+    assert.ok(fs.existsSync(require("node:path").join(__dirname, "..", food.image)));
+    await app.run(`play(${JSON.stringify(food)})`);
+    const audio = `audio/${food.name.toLowerCase().replace(/\s+/g, "-")}.mp3`;
+    assert.equal(app.clips.at(-1).src, audio);
+    assert.ok(fs.statSync(require("node:path").join(__dirname, "..", audio)).size > 0);
+    assert.equal(app.hidden(), true);
+    assert.equal(app.run("activePlayback"), null);
+    assert.equal(app.player.options, undefined);
+  }
+});
+
+
+test("alphabet cards change only after their complete phrase ends", async () => {
+  const app = setup({ apiReady: false });
+  const group = require("../alphabet.json")[0];
+  app.run(`globalThis.entry = {kind: "alphabet", card: AlphabetCards.create(${JSON.stringify(group)}), tile: {classList: {add() {}, remove() {}}}, update() { this.updated = true; }}; globalThis.updates = 0; entry.update = () => updates++`);
+  await app.run("play(entry)");
+  assert.equal(app.clips[0].src, "audio/alphabet/a-alligator-us.mp3");
+  assert.equal(app.run("entry.card.index"), 0);
+  assert.equal(app.hidden(), true);
+  assert.equal(app.player.options, undefined);
+  app.clips[0].onended();
+  assert.notEqual(app.run("entry.card.index"), 0);
+  assert.equal(app.run("updates"), 1);
+  app.clips[0].onended();
+  assert.equal(app.run("updates"), 1, "duplicate ended events must not skip items");
+});
+
+test("interrupted alphabet phrases do not change cards", async () => {
+  const app = setup();
+  app.run(`globalThis.entry = {kind: "alphabet", card: AlphabetCards.create(${JSON.stringify(require("../alphabet.json")[0])}), tile: {classList: {add() {}, remove() {}}}, update() {}}`);
+  await app.run("play(entry)");
+  const ended = app.clips[0].onended;
+  app.run('speak("Tomato")');
+  ended();
+  assert.equal(app.run("entry.card.index"), 0);
+  await app.run("play(entry)");
+  const stopped = app.clips[0].onended;
+  app.run("stopPlaybackForLimit()");
+  stopped();
+  assert.equal(app.run("entry.card.index"), 0);
+});
+
+test('Y and Z fallback speech use Why and Zee with US English', async () => {
+  for (const [letter, spoken] of [['Y', 'Why'], ['Z', 'Zee']]) {
+    const app = setup({apiReady: false});
+    const group = require('../alphabet.json').find(group => group.letter === letter);
+    app.run(`globalThis.entry = {kind:'alphabet',card:AlphabetCards.create(${JSON.stringify(group)}),tile:{classList:{add(){},remove(){}}},update(){}}`);
+    await app.run('play(entry)');
+    app.clips[0].play = () => Promise.reject(new Error("missing recording"));
+    await app.run("play(entry)");
+    await Promise.resolve();
+    assert.equal(app.utterances[0].text, `${spoken} is for ${group.items[0].name}`);
+    assert.equal(app.utterances[0].lang, 'en-US');
+  }
+});
+
+test('lesson taps animate the same card, restart, finish in five seconds and cancel on limits', async () => {
+  const app = setup({apiReady: false});
+  app.run('globalThis.lesson = {...LessonScenes.lessons[1],scene:document.getElementById("inline-test-art")}');
+  await app.run('play(lesson)');
+  assert.equal(app.clips[0].src, 'audio/lessons/wash-hands.mp3');
+  assert.equal(app.player.options, undefined);
+  app.tick(2000);
+  assert.equal(app.run('activeLesson.scene === lesson.scene'), true);
+  await app.run('play(lesson)');
+  assert.ok(app.clips[0].pauses >= 1);
+  app.tick(4990);
+  assert.notEqual(app.run('lessonAnimation'), null);
+  app.tick(30);
+  assert.equal(app.run('lessonAnimation'), null);
+  await app.run('play({...LessonScenes.lessons[0],scene:lesson.scene})');
+  assert.equal(app.clips.at(-1).src, 'audio/lessons/chicken-wing.mp3');
+  app.run('stopPlaybackForLimit()');
+  app.tick(6000);
+  assert.equal(app.run('activeLesson'), null);
+  assert.equal(app.run('lessonAnimation'), null);
+  assert.ok(app.run('lesson.scene.innerHTML.includes("<svg")'));
+});
+
+test('Alphabet Banana uses the requested pronunciation without changing its display name', async () => {
+  const app = setup({apiReady: false});
+  const group = require('../alphabet.json').find(group => group.letter === 'B');
+  const banana = group.items.find(item => item.name === 'Banana');
+  assert.equal(banana.spokenName, 'bah-NAN-uh');
+  app.run(`globalThis.entry = {kind:'alphabet',card:AlphabetCards.create(${JSON.stringify({...group,items:[banana]})}),tile:{classList:{add(){},remove(){}}},update(){}}`);
+  await app.run('play(entry)');
+  assert.equal(app.clips[0].src, 'audio/alphabet/b-banana-us-v3.mp3');
+  app.clips[0].play = () => Promise.reject(new Error('missing recording'));
+  await app.run('play(entry)');
+  await Promise.resolve();
+  assert.equal(app.utterances[0].text, 'Bee is for bah-NAN-uh');
+  assert.equal(app.run('entry.card.items[0].name'), 'Banana');
+});
+
+test('lesson animation follows audio time and stopping the lesson stops its effects', async () => {
+  const app = setup({apiReady: false});
+  app.run('globalThis.lesson = {...LessonScenes.lessons[0],scene:document.getElementById("inline-test-art")}');
+  await app.run('play(lesson)');
+  const clip=app.clips[0];
+  clip.readyState=4;
+  clip.paused=false;
+  clip.currentTime=1;
+  app.tick(6000);
+  assert.notEqual(app.run('lessonAnimation'),null,'a delayed audio start must not desynchronize the animation');
+  clip.currentTime=5;
+  clip.ended=true;
+  app.tick(32);
+  assert.equal(app.run('lessonAnimation'),null);
+  const pauses=clip.pauses;
+  app.run('stopLesson()');
+  assert.ok(clip.pauses>pauses);
 });

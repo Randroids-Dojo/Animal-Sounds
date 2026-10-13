@@ -1,0 +1,132 @@
+[
+  {
+    "name": "Tyrannosaurus Rex",
+    "image": "images/dinosaurs/tyrannosaurus-rex.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Triceratops",
+    "image": "images/dinosaurs/triceratops.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Stegosaurus",
+    "image": "images/dinosaurs/stegosaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Brachiosaurus",
+    "image": "images/dinosaurs/brachiosaurus.jpg",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Brontosaurus",
+    "image": "images/dinosaurs/brontosaurus.jpg",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Diplodocus",
+    "image": "images/dinosaurs/diplodocus.jpg",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Velociraptor",
+    "image": "images/dinosaurs/velociraptor.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Spinosaurus",
+    "image": "images/dinosaurs/spinosaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Ankylosaurus",
+    "image": "images/dinosaurs/ankylosaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Parasaurolophus",
+    "image": "images/dinosaurs/parasaurolophus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Allosaurus",
+    "image": "images/dinosaurs/allosaurus.jpg",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Pachycephalosaurus",
+    "image": "images/dinosaurs/pachycephalosaurus.jpg",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Iguanodon",
+    "image": "images/dinosaurs/iguanodon.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Carnotaurus",
+    "image": "images/dinosaurs/carnotaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Dilophosaurus",
+    "image": "images/dinosaurs/dilophosaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Therizinosaurus",
+    "image": "images/dinosaurs/therizinosaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Amargasaurus",
+    "image": "images/dinosaurs/amargasaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Gallimimus",
+    "image": "images/dinosaurs/gallimimus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Microraptor",
+    "image": "images/dinosaurs/microraptor.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Psittacosaurus",
+    "image": "images/dinosaurs/psittacosaurus.jpg",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Deinocheirus",
+    "image": "images/dinosaurs/deinocheirus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Oviraptor",
+    "image": "images/dinosaurs/oviraptor.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Styracosaurus",
+    "image": "images/dinosaurs/styracosaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Protoceratops",
+    "image": "images/dinosaurs/protoceratops.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Ouranosaurus",
+    "image": "images/dinosaurs/ouranosaurus.png",
+    "kind": "dinosaur"
+  },
+  {
+    "name": "Concavenator",
+    "image": "images/dinosaurs/concavenator.png",
+    "kind": "dinosaur"
+  }
+]

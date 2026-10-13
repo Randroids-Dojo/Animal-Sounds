@@ -1,0 +1,809 @@
+[
+  {
+    "letter": "A",
+    "items": [
+      {
+        "name": "Alligator",
+        "image": "images/alphabet/alligator.svg",
+        "audio": "audio/alphabet/a-alligator-us.mp3"
+      },
+      {
+        "name": "Apple",
+        "image": "images/alphabet/apple.svg",
+        "audio": "audio/alphabet/a-apple-us.mp3"
+      },
+      {
+        "name": "Airplane",
+        "image": "images/alphabet/airplane.svg",
+        "audio": "audio/alphabet/a-airplane-us.mp3"
+      },
+      {
+        "name": "Avocado",
+        "image": "images/alphabet/avocado.svg",
+        "audio": "audio/alphabet/a-avocado-us.mp3"
+      },
+      {
+        "name": "Ant",
+        "image": "images/alphabet/ant.svg",
+        "audio": "audio/alphabet/a-ant-us.mp3"
+      }
+    ],
+    "spokenLetter": "A"
+  },
+  {
+    "letter": "B",
+    "items": [
+      {
+        "name": "Bear",
+        "image": "images/alphabet/bear.svg",
+        "audio": "audio/alphabet/b-bear-us.mp3"
+      },
+      {
+        "name": "Banana",
+        "image": "images/alphabet/banana.svg",
+        "audio": "audio/alphabet/b-banana-us-v3.mp3",
+        "spokenName": "bah-NAN-uh"
+      },
+      {
+        "name": "Ball",
+        "image": "images/alphabet/ball.svg",
+        "audio": "audio/alphabet/b-ball-us.mp3"
+      },
+      {
+        "name": "Butterfly",
+        "image": "images/alphabet/butterfly.svg",
+        "audio": "audio/alphabet/b-butterfly-us.mp3"
+      },
+      {
+        "name": "Blue",
+        "image": "images/alphabet/blue.svg",
+        "audio": "audio/alphabet/b-blue-us.mp3"
+      }
+    ],
+    "spokenLetter": "Bee"
+  },
+  {
+    "letter": "C",
+    "items": [
+      {
+        "name": "Cat",
+        "image": "images/alphabet/cat.svg",
+        "audio": "audio/alphabet/c-cat-us.mp3"
+      },
+      {
+        "name": "Carrot",
+        "image": "images/alphabet/carrot.svg",
+        "audio": "audio/alphabet/c-carrot-us.mp3"
+      },
+      {
+        "name": "Circle",
+        "image": "images/alphabet/circle.svg",
+        "audio": "audio/alphabet/c-circle-us.mp3"
+      },
+      {
+        "name": "Car",
+        "image": "images/alphabet/car.svg",
+        "audio": "audio/alphabet/c-car-us.mp3"
+      },
+      {
+        "name": "Cake",
+        "image": "images/alphabet/cake.svg",
+        "audio": "audio/alphabet/c-cake-us.mp3"
+      }
+    ],
+    "spokenLetter": "See"
+  },
+  {
+    "letter": "D",
+    "items": [
+      {
+        "name": "Dog",
+        "image": "images/alphabet/dog.svg",
+        "audio": "audio/alphabet/d-dog-us.mp3"
+      },
+      {
+        "name": "Duck",
+        "image": "images/alphabet/duck.svg",
+        "audio": "audio/alphabet/d-duck-us.mp3"
+      },
+      {
+        "name": "Diamond",
+        "image": "images/alphabet/diamond.svg",
+        "audio": "audio/alphabet/d-diamond-us.mp3"
+      },
+      {
+        "name": "Doughnut",
+        "image": "images/alphabet/doughnut.svg",
+        "audio": "audio/alphabet/d-doughnut-us.mp3"
+      },
+      {
+        "name": "Drum",
+        "image": "images/alphabet/drum.svg",
+        "audio": "audio/alphabet/d-drum-us.mp3"
+      }
+    ],
+    "spokenLetter": "Dee"
+  },
+  {
+    "letter": "E",
+    "items": [
+      {
+        "name": "Elephant",
+        "image": "images/alphabet/elephant.svg",
+        "audio": "audio/alphabet/e-elephant-us.mp3"
+      },
+      {
+        "name": "Egg",
+        "image": "images/alphabet/egg.svg",
+        "audio": "audio/alphabet/e-egg-us.mp3"
+      },
+      {
+        "name": "Eagle",
+        "image": "images/alphabet/eagle.svg",
+        "audio": "audio/alphabet/e-eagle-us.mp3"
+      },
+      {
+        "name": "Envelope",
+        "image": "images/alphabet/envelope.svg",
+        "audio": "audio/alphabet/e-envelope-us.mp3"
+      },
+      {
+        "name": "Earth",
+        "image": "images/alphabet/earth.svg",
+        "audio": "audio/alphabet/e-earth-us.mp3"
+      }
+    ],
+    "spokenLetter": "E"
+  },
+  {
+    "letter": "F",
+    "items": [
+      {
+        "name": "Fox",
+        "image": "images/alphabet/fox.svg",
+        "audio": "audio/alphabet/f-fox-us.mp3"
+      },
+      {
+        "name": "Fish",
+        "image": "images/alphabet/fish.svg",
+        "audio": "audio/alphabet/f-fish-us.mp3"
+      },
+      {
+        "name": "Flower",
+        "image": "images/alphabet/flower.svg",
+        "audio": "audio/alphabet/f-flower-us.mp3"
+      },
+      {
+        "name": "Fire truck",
+        "image": "images/alphabet/fire-truck.svg",
+        "audio": "audio/alphabet/f-fire-truck-us.mp3"
+      },
+      {
+        "name": "Fork",
+        "image": "images/alphabet/fork.svg",
+        "audio": "audio/alphabet/f-fork-us.mp3"
+      }
+    ],
+    "spokenLetter": "Eff"
+  },
+  {
+    "letter": "G",
+    "items": [
+      {
+        "name": "Giraffe",
+        "image": "images/alphabet/giraffe.svg",
+        "audio": "audio/alphabet/g-giraffe-us.mp3"
+      },
+      {
+        "name": "Grapes",
+        "image": "images/alphabet/grapes.svg",
+        "audio": "audio/alphabet/g-grapes-us.mp3"
+      },
+      {
+        "name": "Green",
+        "image": "images/alphabet/green.svg",
+        "audio": "audio/alphabet/g-green-us.mp3"
+      },
+      {
+        "name": "Guitar",
+        "image": "images/alphabet/guitar.svg",
+        "audio": "audio/alphabet/g-guitar-us.mp3"
+      },
+      {
+        "name": "Gorilla",
+        "image": "images/alphabet/gorilla.svg",
+        "audio": "audio/alphabet/g-gorilla-us.mp3"
+      }
+    ],
+    "spokenLetter": "Jee"
+  },
+  {
+    "letter": "H",
+    "items": [
+      {
+        "name": "Horse",
+        "image": "images/alphabet/horse.svg",
+        "audio": "audio/alphabet/h-horse-us.mp3"
+      },
+      {
+        "name": "House",
+        "image": "images/alphabet/house.svg",
+        "audio": "audio/alphabet/h-house-us.mp3"
+      },
+      {
+        "name": "Heart",
+        "image": "images/alphabet/heart.svg",
+        "audio": "audio/alphabet/h-heart-us.mp3"
+      },
+      {
+        "name": "Hamburger",
+        "image": "images/alphabet/hamburger.svg",
+        "audio": "audio/alphabet/h-hamburger-us.mp3"
+      },
+      {
+        "name": "Hat",
+        "image": "images/alphabet/hat.svg",
+        "audio": "audio/alphabet/h-hat-us.mp3"
+      }
+    ],
+    "spokenLetter": "Aitch"
+  },
+  {
+    "letter": "I",
+    "items": [
+      {
+        "name": "Iguana",
+        "image": "images/alphabet/iguana.svg",
+        "audio": "audio/alphabet/i-iguana-us.mp3"
+      },
+      {
+        "name": "Ice cream",
+        "image": "images/alphabet/ice-cream.svg",
+        "audio": "audio/alphabet/i-ice-cream-us.mp3"
+      },
+      {
+        "name": "Ice",
+        "image": "images/alphabet/ice.svg",
+        "audio": "audio/alphabet/i-ice-us.mp3"
+      },
+      {
+        "name": "Island",
+        "image": "images/alphabet/island.svg",
+        "audio": "audio/alphabet/i-island-us.mp3"
+      },
+      {
+        "name": "Igloo",
+        "image": "images/alphabet/igloo.svg",
+        "audio": "audio/alphabet/i-igloo-us.mp3"
+      }
+    ],
+    "spokenLetter": "Eye"
+  },
+  {
+    "letter": "J",
+    "items": [
+      {
+        "name": "Jellyfish",
+        "image": "images/alphabet/jellyfish.svg",
+        "audio": "audio/alphabet/j-jellyfish-us.mp3"
+      },
+      {
+        "name": "Juice",
+        "image": "images/alphabet/juice.svg",
+        "audio": "audio/alphabet/j-juice-us.mp3"
+      },
+      {
+        "name": "Jacket",
+        "image": "images/alphabet/jacket.svg",
+        "audio": "audio/alphabet/j-jacket-us.mp3"
+      },
+      {
+        "name": "Jigsaw puzzle",
+        "image": "images/alphabet/jigsaw-puzzle.svg",
+        "audio": "audio/alphabet/j-jigsaw-puzzle-us.mp3"
+      },
+      {
+        "name": "Jam",
+        "image": "images/alphabet/jam.svg",
+        "audio": "audio/alphabet/j-jam-us.mp3"
+      }
+    ],
+    "spokenLetter": "Jay"
+  },
+  {
+    "letter": "K",
+    "items": [
+      {
+        "name": "Kangaroo",
+        "image": "images/alphabet/kangaroo.svg",
+        "audio": "audio/alphabet/k-kangaroo-us.mp3"
+      },
+      {
+        "name": "Kiwi",
+        "image": "images/alphabet/kiwi.svg",
+        "audio": "audio/alphabet/k-kiwi-us.mp3"
+      },
+      {
+        "name": "Key",
+        "image": "images/alphabet/key.svg",
+        "audio": "audio/alphabet/k-key-us.mp3"
+      },
+      {
+        "name": "Kite",
+        "image": "images/alphabet/kite.svg",
+        "audio": "audio/alphabet/k-kite-us.mp3"
+      },
+      {
+        "name": "Koala",
+        "image": "images/alphabet/koala.svg",
+        "audio": "audio/alphabet/k-koala-us.mp3"
+      }
+    ],
+    "spokenLetter": "Kay"
+  },
+  {
+    "letter": "L",
+    "items": [
+      {
+        "name": "Lion",
+        "image": "images/alphabet/lion.svg",
+        "audio": "audio/alphabet/l-lion-us.mp3"
+      },
+      {
+        "name": "Lemon",
+        "image": "images/alphabet/lemon.svg",
+        "audio": "audio/alphabet/l-lemon-us.mp3"
+      },
+      {
+        "name": "Leaf",
+        "image": "images/alphabet/leaf.svg",
+        "audio": "audio/alphabet/l-leaf-us.mp3"
+      },
+      {
+        "name": "Lollipop",
+        "image": "images/alphabet/lollipop.svg",
+        "audio": "audio/alphabet/l-lollipop-us.mp3"
+      },
+      {
+        "name": "Ladder",
+        "image": "images/alphabet/ladder.svg",
+        "audio": "audio/alphabet/l-ladder-us.mp3"
+      }
+    ],
+    "spokenLetter": "Ell"
+  },
+  {
+    "letter": "M",
+    "items": [
+      {
+        "name": "Monkey",
+        "image": "images/alphabet/monkey.svg",
+        "audio": "audio/alphabet/m-monkey-us.mp3"
+      },
+      {
+        "name": "Moon",
+        "image": "images/alphabet/moon.svg",
+        "audio": "audio/alphabet/m-moon-us.mp3"
+      },
+      {
+        "name": "Mushroom",
+        "image": "images/alphabet/mushroom.svg",
+        "audio": "audio/alphabet/m-mushroom-us.mp3"
+      },
+      {
+        "name": "Milk",
+        "image": "images/alphabet/milk.svg",
+        "audio": "audio/alphabet/m-milk-us.mp3"
+      },
+      {
+        "name": "Mouse",
+        "image": "images/alphabet/mouse.svg",
+        "audio": "audio/alphabet/m-mouse-us.mp3"
+      }
+    ],
+    "spokenLetter": "M"
+  },
+  {
+    "letter": "N",
+    "items": [
+      {
+        "name": "Narwhal",
+        "image": "images/alphabet/narwhal.svg",
+        "audio": "audio/alphabet/n-narwhal-us.mp3"
+      },
+      {
+        "name": "Nest",
+        "image": "images/alphabet/nest.svg",
+        "audio": "audio/alphabet/n-nest-us.mp3"
+      },
+      {
+        "name": "Noodles",
+        "image": "images/alphabet/noodles.svg",
+        "audio": "audio/alphabet/n-noodles-us.mp3"
+      },
+      {
+        "name": "Nose",
+        "image": "images/alphabet/nose.svg",
+        "audio": "audio/alphabet/n-nose-us.mp3"
+      },
+      {
+        "name": "Notebook",
+        "image": "images/alphabet/notebook.svg",
+        "audio": "audio/alphabet/n-notebook-us.mp3"
+      }
+    ],
+    "spokenLetter": "N"
+  },
+  {
+    "letter": "O",
+    "items": [
+      {
+        "name": "Octopus",
+        "image": "images/alphabet/octopus.svg",
+        "audio": "audio/alphabet/o-octopus-us.mp3"
+      },
+      {
+        "name": "Orange",
+        "image": "images/alphabet/orange.svg",
+        "audio": "audio/alphabet/o-orange-us.mp3"
+      },
+      {
+        "name": "Oval",
+        "image": "images/alphabet/oval.svg",
+        "audio": "audio/alphabet/o-oval-us.mp3"
+      },
+      {
+        "name": "Owl",
+        "image": "images/alphabet/owl.svg",
+        "audio": "audio/alphabet/o-owl-us.mp3"
+      },
+      {
+        "name": "Onion",
+        "image": "images/alphabet/onion.svg",
+        "audio": "audio/alphabet/o-onion-us.mp3"
+      }
+    ],
+    "spokenLetter": "Oh"
+  },
+  {
+    "letter": "P",
+    "items": [
+      {
+        "name": "Penguin",
+        "image": "images/alphabet/penguin.svg",
+        "audio": "audio/alphabet/p-penguin-us.mp3"
+      },
+      {
+        "name": "Potato",
+        "image": "images/alphabet/potato.svg",
+        "audio": "audio/alphabet/p-potato-us.mp3"
+      },
+      {
+        "name": "Pizza",
+        "image": "images/alphabet/pizza.svg",
+        "audio": "audio/alphabet/p-pizza-us.mp3"
+      },
+      {
+        "name": "Pink",
+        "image": "images/alphabet/pink.svg",
+        "audio": "audio/alphabet/p-pink-us.mp3"
+      },
+      {
+        "name": "Pear",
+        "image": "images/alphabet/pear.svg",
+        "audio": "audio/alphabet/p-pear-us.mp3"
+      }
+    ],
+    "spokenLetter": "Pee"
+  },
+  {
+    "letter": "Q",
+    "items": [
+      {
+        "name": "Quail",
+        "image": "images/alphabet/quail.svg",
+        "audio": "audio/alphabet/q-quail-us.mp3"
+      },
+      {
+        "name": "Queen",
+        "image": "images/alphabet/queen.svg",
+        "audio": "audio/alphabet/q-queen-us.mp3"
+      },
+      {
+        "name": "Quilt",
+        "image": "images/alphabet/quilt.svg",
+        "audio": "audio/alphabet/q-quilt-us.mp3"
+      },
+      {
+        "name": "Question mark",
+        "image": "images/alphabet/question-mark.svg",
+        "audio": "audio/alphabet/q-question-mark-us.mp3"
+      },
+      {
+        "name": "Quince",
+        "image": "images/alphabet/quince.svg",
+        "audio": "audio/alphabet/q-quince-us.mp3"
+      }
+    ],
+    "spokenLetter": "Cue"
+  },
+  {
+    "letter": "R",
+    "items": [
+      {
+        "name": "Rabbit",
+        "image": "images/alphabet/rabbit.svg",
+        "audio": "audio/alphabet/r-rabbit-us.mp3"
+      },
+      {
+        "name": "Rainbow",
+        "image": "images/alphabet/rainbow.svg",
+        "audio": "audio/alphabet/r-rainbow-us.mp3"
+      },
+      {
+        "name": "Red",
+        "image": "images/alphabet/red.svg",
+        "audio": "audio/alphabet/r-red-us.mp3"
+      },
+      {
+        "name": "Rocket",
+        "image": "images/alphabet/rocket.svg",
+        "audio": "audio/alphabet/r-rocket-us.mp3"
+      },
+      {
+        "name": "Rice",
+        "image": "images/alphabet/rice.svg",
+        "audio": "audio/alphabet/r-rice-us.mp3"
+      }
+    ],
+    "spokenLetter": "Are"
+  },
+  {
+    "letter": "S",
+    "items": [
+      {
+        "name": "Snake",
+        "image": "images/alphabet/snake.svg",
+        "audio": "audio/alphabet/s-snake-us.mp3"
+      },
+      {
+        "name": "Star",
+        "image": "images/alphabet/star.svg",
+        "audio": "audio/alphabet/s-star-us.mp3"
+      },
+      {
+        "name": "Square",
+        "image": "images/alphabet/square.svg",
+        "audio": "audio/alphabet/s-square-us.mp3"
+      },
+      {
+        "name": "Strawberry",
+        "image": "images/alphabet/strawberry.svg",
+        "audio": "audio/alphabet/s-strawberry-us.mp3"
+      },
+      {
+        "name": "Sun",
+        "image": "images/alphabet/sun.svg",
+        "audio": "audio/alphabet/s-sun-us.mp3"
+      }
+    ],
+    "spokenLetter": "Ess"
+  },
+  {
+    "letter": "T",
+    "items": [
+      {
+        "name": "Tiger",
+        "image": "images/alphabet/tiger.svg",
+        "audio": "audio/alphabet/t-tiger-us.mp3"
+      },
+      {
+        "name": "Tomato",
+        "image": "images/alphabet/tomato.svg",
+        "audio": "audio/alphabet/t-tomato-us.mp3"
+      },
+      {
+        "name": "Triangle",
+        "image": "images/alphabet/triangle.svg",
+        "audio": "audio/alphabet/t-triangle-us.mp3"
+      },
+      {
+        "name": "Train",
+        "image": "images/alphabet/train.svg",
+        "audio": "audio/alphabet/t-train-us.mp3"
+      },
+      {
+        "name": "Tree",
+        "image": "images/alphabet/tree.svg",
+        "audio": "audio/alphabet/t-tree-us.mp3"
+      }
+    ],
+    "spokenLetter": "Tee"
+  },
+  {
+    "letter": "U",
+    "items": [
+      {
+        "name": "Urchin",
+        "image": "images/alphabet/urchin.svg",
+        "audio": "audio/alphabet/u-urchin-us.mp3"
+      },
+      {
+        "name": "Umbrella",
+        "image": "images/alphabet/umbrella.svg",
+        "audio": "audio/alphabet/u-umbrella-us.mp3"
+      },
+      {
+        "name": "Unicorn",
+        "image": "images/alphabet/unicorn.svg",
+        "audio": "audio/alphabet/u-unicorn-us.mp3"
+      },
+      {
+        "name": "Up arrow",
+        "image": "images/alphabet/up-arrow.svg",
+        "audio": "audio/alphabet/u-up-arrow-us.mp3"
+      },
+      {
+        "name": "Ukulele",
+        "image": "images/alphabet/ukulele.svg",
+        "audio": "audio/alphabet/u-ukulele-us.mp3"
+      }
+    ],
+    "spokenLetter": "You"
+  },
+  {
+    "letter": "V",
+    "items": [
+      {
+        "name": "Vulture",
+        "image": "images/alphabet/vulture.svg",
+        "audio": "audio/alphabet/v-vulture-us.mp3"
+      },
+      {
+        "name": "Violin",
+        "image": "images/alphabet/violin.svg",
+        "audio": "audio/alphabet/v-violin-us.mp3"
+      },
+      {
+        "name": "Volcano",
+        "image": "images/alphabet/volcano.svg",
+        "audio": "audio/alphabet/v-volcano-us.mp3"
+      },
+      {
+        "name": "Van",
+        "image": "images/alphabet/van.svg",
+        "audio": "audio/alphabet/v-van-us.mp3"
+      },
+      {
+        "name": "Violet",
+        "image": "images/alphabet/violet.svg",
+        "audio": "audio/alphabet/v-violet-us.mp3"
+      }
+    ],
+    "spokenLetter": "Vee"
+  },
+  {
+    "letter": "W",
+    "items": [
+      {
+        "name": "Whale",
+        "image": "images/alphabet/whale.svg",
+        "audio": "audio/alphabet/w-whale-us.mp3"
+      },
+      {
+        "name": "Watermelon",
+        "image": "images/alphabet/watermelon.svg",
+        "audio": "audio/alphabet/w-watermelon-us.mp3"
+      },
+      {
+        "name": "Water",
+        "image": "images/alphabet/water.svg",
+        "audio": "audio/alphabet/w-water-us.mp3"
+      },
+      {
+        "name": "Watch",
+        "image": "images/alphabet/watch.svg",
+        "audio": "audio/alphabet/w-watch-us.mp3"
+      },
+      {
+        "name": "Waffle",
+        "image": "images/alphabet/waffle.svg",
+        "audio": "audio/alphabet/w-waffle-us.mp3"
+      }
+    ],
+    "spokenLetter": "Double you"
+  },
+  {
+    "letter": "X",
+    "items": [
+      {
+        "name": "X-ray tetra",
+        "image": "images/alphabet/x-ray-tetra.svg",
+        "audio": "audio/alphabet/x-x-ray-tetra-us.mp3"
+      },
+      {
+        "name": "Xylophone",
+        "image": "images/alphabet/xylophone.svg",
+        "audio": "audio/alphabet/x-xylophone-us.mp3"
+      },
+      {
+        "name": "X-ray",
+        "image": "images/alphabet/x-ray.svg",
+        "audio": "audio/alphabet/x-x-ray-us.mp3"
+      },
+      {
+        "name": "Xerus",
+        "image": "images/alphabet/xerus.svg",
+        "audio": "audio/alphabet/x-xerus-us.mp3"
+      },
+      {
+        "name": "Xenops",
+        "image": "images/alphabet/xenops.svg",
+        "audio": "audio/alphabet/x-xenops-us.mp3"
+      }
+    ],
+    "spokenLetter": "Ex"
+  },
+  {
+    "letter": "Y",
+    "items": [
+      {
+        "name": "Yak",
+        "image": "images/alphabet/yak.svg",
+        "audio": "audio/alphabet/y-yak-us.mp3"
+      },
+      {
+        "name": "Yellow",
+        "image": "images/alphabet/yellow.svg",
+        "audio": "audio/alphabet/y-yellow-us.mp3"
+      },
+      {
+        "name": "Yarn",
+        "image": "images/alphabet/yarn.svg",
+        "audio": "audio/alphabet/y-yarn-us.mp3"
+      },
+      {
+        "name": "Yo-yo",
+        "image": "images/alphabet/yo-yo.svg",
+        "audio": "audio/alphabet/y-yo-yo-us.mp3"
+      },
+      {
+        "name": "Yogurt",
+        "image": "images/alphabet/yogurt.svg",
+        "audio": "audio/alphabet/y-yogurt-us.mp3"
+      }
+    ],
+    "spokenLetter": "Why"
+  },
+  {
+    "letter": "Z",
+    "items": [
+      {
+        "name": "Zebra",
+        "image": "images/alphabet/zebra.svg",
+        "audio": "audio/alphabet/z-zebra-us.mp3"
+      },
+      {
+        "name": "Zucchini",
+        "image": "images/alphabet/zucchini.svg",
+        "audio": "audio/alphabet/z-zucchini-us.mp3"
+      },
+      {
+        "name": "Zigzag",
+        "image": "images/alphabet/zigzag.svg",
+        "audio": "audio/alphabet/z-zigzag-us.mp3"
+      },
+      {
+        "name": "Zipper",
+        "image": "images/alphabet/zipper.svg",
+        "audio": "audio/alphabet/z-zipper-us.mp3"
+      },
+      {
+        "name": "Zero",
+        "image": "images/alphabet/zero.svg",
+        "audio": "audio/alphabet/z-zero-us.mp3"
+      }
+    ],
+    "spokenLetter": "Zee"
+  }
+]

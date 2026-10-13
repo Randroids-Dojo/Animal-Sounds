@@ -117,39 +117,42 @@
     const dragPoint = center(draggedPiece);
     const broadPoint = center(broadPiece);
 
+    const ghostCount = () => document.querySelectorAll(".puzzle-piece.dragging").length;
+    const nudge = (point, distance = TAP_SLOP_PX + 8) => ({ clientX: point.clientX + distance, clientY: point.clientY });
+
     fire(restingPiece, "pointerdown", { pointerId: 10, ...restingPoint, width: 28, height: 20 });
     check(
       "resting puzzle contact does not claim a piece",
-      puzzleDrag === null && !document.querySelector(".puzzle-piece.dragging"),
+      puzzleDrags.size === 0 && ghostCount() === 0,
     );
     fire(draggedPiece, "pointerdown", { pointerId: 11, ...dragPoint, width: 20, height: 16 });
-    fire(draggedPiece, "pointermove", {
-      pointerId: 11,
-      clientX: dragPoint.clientX + TAP_SLOP_PX + 8,
-      clientY: dragPoint.clientY,
-      width: 20,
-      height: 16,
-    });
+    fire(draggedPiece, "pointermove", { pointerId: 11, ...nudge(dragPoint), width: 20, height: 16 });
     check(
-      "moving fingertip exclusively owns puzzle drag",
-      puzzleDrag?.pointerId === 11 && Boolean(document.querySelector(".puzzle-piece.dragging")),
-      String(puzzleDrag?.pointerId),
+      "moving fingertip owns its piece",
+      puzzleDrags.get(11)?.piece === draggedPiece && ghostCount() === 1,
+      [...puzzleDrags.keys()].join(","),
     );
-    fire(restingPiece, "pointermove", {
-      pointerId: 10,
-      clientX: restingPoint.clientX + TAP_SLOP_PX + 20,
-      clientY: restingPoint.clientY,
-      width: 28,
-      height: 20,
-    });
-    check("extra moving contact cannot steal drag", puzzleDrag?.pointerId === 11);
-    fire(draggedPiece, "pointercancel", {
-      pointerId: 11,
-      clientX: dragPoint.clientX + TAP_SLOP_PX + 8,
-      clientY: dragPoint.clientY,
-    });
-    fire(restingPiece, "pointerup", { pointerId: 10, ...restingPoint });
-    check("canceled owner rolls back and clears drag", puzzleDrag === null);
+    fire(draggedPiece, "pointerdown", { pointerId: 13, ...dragPoint, width: 20, height: 16 });
+    fire(draggedPiece, "pointermove", { pointerId: 13, ...nudge(dragPoint, TAP_SLOP_PX + 20), width: 20, height: 16 });
+    check(
+      "second finger cannot take a carried piece",
+      puzzleDrags.get(11)?.piece === draggedPiece && !puzzleDrags.has(13) && ghostCount() === 1,
+    );
+    fire(draggedPiece, "pointerup", { pointerId: 13, ...dragPoint });
+    fire(restingPiece, "pointermove", { pointerId: 10, ...nudge(restingPoint, TAP_SLOP_PX + 20), width: 28, height: 20 });
+    check(
+      "another moving finger drags its own piece",
+      puzzleDrags.get(10)?.piece === restingPiece && puzzleDrags.get(11)?.piece === draggedPiece && ghostCount() === 2,
+      [...puzzleDrags.keys()].join(","),
+    );
+    fire(draggedPiece, "pointercancel", { pointerId: 11, ...nudge(dragPoint) });
+    check(
+      "canceled drag rolls back without ending the other",
+      !puzzleDrags.has(11) && !draggedPiece.classList.contains("drag-source")
+        && puzzleDrags.get(10)?.piece === restingPiece && ghostCount() === 1,
+    );
+    fire(restingPiece, "pointercancel", { pointerId: 10, ...restingPoint });
+    check("every canceled drag clears", puzzleDrags.size === 0 && ghostCount() === 0);
 
     fire(broadPiece, "pointerdown", { pointerId: 12, ...broadPoint, width: 90, height: 25 });
     fire(broadPiece, "pointermove", {
@@ -159,8 +162,59 @@
       width: 90,
       height: 25,
     });
-    check("broad puzzle contact cannot claim a piece", puzzleDrag === null);
+    check("broad puzzle contact cannot claim a piece", puzzleDrags.size === 0);
     fire(broadPiece, "pointerup", { pointerId: 12, ...broadPoint, width: 90, height: 25 });
+
+    // Two fingers carry two pieces to their own slots at the same time.
+    const slotFor = (piece) => puzzleBoard.querySelector(`.puzzle-slot[data-index="${piece.dataset.index}"]`);
+    const [leftPiece, rightPiece, wrongPiece] = puzzleTray.querySelectorAll(".puzzle-piece");
+    const leftStart = center(leftPiece);
+    const rightStart = center(rightPiece);
+    fire(leftPiece, "pointerdown", { pointerId: 20, ...leftStart });
+    fire(rightPiece, "pointerdown", { pointerId: 21, ...rightStart });
+    fire(leftPiece, "pointermove", { pointerId: 20, ...center(slotFor(leftPiece)) });
+    fire(rightPiece, "pointermove", { pointerId: 21, ...center(slotFor(rightPiece)) });
+    check("two fingers carry two pieces at once", puzzleDrags.size === 2 && ghostCount() === 2);
+    fire(leftPiece, "pointerup", { pointerId: 20, ...center(slotFor(leftPiece)) });
+    check(
+      "first finger places its piece while the second keeps dragging",
+      leftPiece.parentElement === slotFor(leftPiece) && puzzleDrags.get(21)?.piece === rightPiece && ghostCount() === 1,
+    );
+    fire(rightPiece, "pointerup", { pointerId: 21, ...center(slotFor(rightPiece)) });
+    check("second finger places its piece", rightPiece.parentElement === slotFor(rightPiece) && ghostCount() === 0);
+
+    // A piece left on another piece's slot stays there, shakes, and glows.
+    const wrongSlot = [...puzzleBoard.querySelectorAll(".puzzle-slot:not(.filled)")]
+      .find((slot) => slot.dataset.index !== wrongPiece.dataset.index);
+    const wrongPoint = center(wrongSlot);
+    fire(wrongPiece, "pointerdown", { pointerId: 22, ...center(wrongPiece) });
+    fire(wrongPiece, "pointermove", { pointerId: 22, ...wrongPoint });
+    fire(wrongPiece, "pointerup", { pointerId: 22, ...wrongPoint });
+    const animations = getComputedStyle(wrongPiece).animationName;
+    check(
+      "wrong slot leaves the piece loose with shake and glow",
+      wrongPiece.classList.contains("dropped") && wrongPiece.classList.contains("mismatch")
+        && !wrongSlot.classList.contains("filled")
+        && animations.includes("puzzle-mismatch-shake") && animations.includes("puzzle-mismatch-glow"),
+      animations,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    check("mismatch feedback clears after it fades", !wrongPiece.classList.contains("mismatch"));
+    fire(wrongPiece, "pointerdown", { pointerId: 23, ...wrongPoint });
+    fire(wrongPiece, "pointermove", { pointerId: 23, ...nudge(wrongPoint, 30) });
+    fire(wrongPiece, "pointerup", { pointerId: 23, ...nudge(wrongPoint, 30) });
+    check(
+      "moving a loose piece within the wrong slot shakes it again",
+      wrongPiece.classList.contains("mismatch"),
+    );
+    const trayPoint = center(puzzleTray);
+    fire(wrongPiece, "pointerdown", { pointerId: 24, ...nudge(wrongPoint, 30) });
+    fire(wrongPiece, "pointermove", { pointerId: 24, ...trayPoint });
+    fire(wrongPiece, "pointerup", { pointerId: 24, ...trayPoint });
+    check(
+      "a piece left away from the slots does not shake",
+      wrongPiece.classList.contains("dropped") && !wrongPiece.classList.contains("mismatch"),
+    );
   } finally {
     play = originalPlay;
     Element.prototype.setPointerCapture = originalSetPointerCapture;

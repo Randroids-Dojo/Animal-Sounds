@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 410" role="img" aria-label="Hands get wet, use soap, rub together with soap, rinse, and dry with a towel."><g stroke="#3b3544" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><rect x="28" y="301" width="344" height="80" rx="24" fill="#b5dce1"/>
+      <ellipse cx="200" cy="304" rx="158" ry="40" fill="#e5f4f3"/>
+      <ellipse cx="200" cy="315" rx="25" ry="8" fill="#96b4bc"/>
+      <path d="M290 280V87q0-33-33-33h-24q-30 0-30 33v17h28V91q0-9 10-9h16q6 0 6 9v189" fill="#a1b5c2"/>
+      <path d="M282 135h35v-19" fill="none" stroke="#3b3544" stroke-width="10"/>
+      <g data-part="water" opacity="0" stroke="#64badd" stroke-width="7"><path d="M207 112v150m12-150v153m12-153v145" fill="none" stroke-dasharray="12 10"/></g>
+      <g data-part="soap"><rect x="40" y="150" width="57" height="87" rx="13" fill="#e2c089"/><path d="M67 150v-23h30m-18 0v-10" fill="none" stroke-width="8"/><path d="M55 177h28v35H55Z" fill="#fff5de"/></g>
+      <g data-part="hands">
+        <g transform="translate(179 226)"><g data-part="left-hand"><path d="M-86 22h35l19-13 20-7 27-32q8-7 13 0l-18 26 29-20q10-5 13 4L27 2l31-13q12-3 12 7L36 14l25-5q12 0 10 10L24 41q-21 15-45 3l-30-4h-35Z" fill="#dba27b"/>
+      <path d="M-10 27 12 8m8 21 21-12" fill="none" stroke="#b77957" stroke-width="3"/></g></g>
+        <g transform="translate(243 253) rotate(180)"><g data-part="right-hand"><path d="M-86 22h35l19-13 20-7 27-32q8-7 13 0l-18 26 29-20q10-5 13 4L27 2l31-13q12-3 12 7L36 14l25-5q12 0 10 10L24 41q-21 15-45 3l-30-4h-35Z" fill="#dba27b"/>
+      <path d="M-10 27 12 8m8 21 21-12" fill="none" stroke="#b77957" stroke-width="3"/></g></g>
+      </g>
+      <g data-part="bubbles" stroke="#79b6c9" stroke-width="2" fill="#f6ffff">
+        <circle cx="177" cy="206" r="17"/><circle cx="200" cy="218" r="21"/><circle cx="226" cy="209" r="14"/><circle cx="215" cy="239" r="17"/><circle cx="173" cy="237" r="14"/><circle cx="193" cy="189" r="10"/><circle cx="237" cy="183" r="8"/>
+      </g>
+      <g data-part="towel" opacity="0"><path d="M128 191q71-15 141 0v91q-73 17-141 0Z" fill="#f4d48e"/><path d="M139 203v66m14-70v73m93-70v68m12-67v63" fill="none" stroke="#dfb76a" stroke-width="4"/></g></g></svg>
