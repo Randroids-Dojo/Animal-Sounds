@@ -40,16 +40,24 @@ The videos come from this YouTube playlist:
 - Tap the large **Puzzle** tab in the header to open **Animal Puzzle**; tap the
   large **Sounds** tab to return. Swipe navigation is deliberately disabled so
   dragging a puzzle piece cannot accidentally change pages.
-  Each round has two clear sections: nine mixed-up animal-image pieces and
-  nine empty outlined slots. Place each piece in its matching slot. A star,
-  particles, and chime celebrate a completed puzzle before a new randomized
-  round appears. The puzzle stays fixed in the viewport; it does not scroll.
+  Each round cuts an animal picture, on a sky-and-meadow backdrop, into a
+  3×3 jigsaw. Every inner cut has one interlocking knob, the outer edges are
+  flat, and the cuts change every round (`jigsaw.js`). The board shows a faint
+  copy of the picture with each piece's dashed outline; the mixed-up pieces sit
+  below it. Pieces never rotate, so each shape fits only its own spot. A piece
+  seats where its own center is released, not where the finger is, so it can
+  be carried by a knob. It slides the last bit into place with a soft click,
+  and seated neighbors join into one seamless picture. Only a piece's shape,
+  plus a fingertip's margin, can be grabbed, so a loose piece's empty corners
+  never block another piece. A star, particles, and chime celebrate a
+  completed puzzle before a new randomized round appears. The puzzle stays
+  fixed in the viewport; it does not scroll.
   Several fingers can drag several pieces at once, and each piece keeps
   tracking its own finger; a second finger cannot take a piece that is already
   being carried. A contact does not own a piece until it moves with drag intent,
   so a stationary palm, belly, or extra finger cannot block the fingers doing
   the puzzle. Pieces remain where they are released until moved again or placed
-  in their matching spot. A piece left on a slot it does not match stays there,
+  in their matching spot. A piece left over a spot it does not match stays there,
   shakes slightly, and glows faint red for under a second.
 - The Puzzle tab stays in portrait when the device turns. It requests a native
   orientation lock where supported, and counter-rotates its play surface in
@@ -228,6 +236,8 @@ Test with the kiosk locked:
       nothing when lifted.
 - [ ] Drag two puzzle pieces at once with two fingers; each must follow its
       own finger, and lifting one must not drop the other.
+- [ ] Carry a piece by one of its knobs and let go with the piece over its
+      spot; it must slide in with a click and line up with its neighbors.
 - [ ] Leave a piece on a slot it does not match; it must stay there, shake
       slightly, and fade out a faint red glow.
 - [ ] Hold the tablet with thumbs on the screen edges on every tab; nothing
@@ -250,6 +260,12 @@ drag, puzzle completion, return navigation, and the touch-input checks.
 Run `node tests/browser-wake.cjs` with the same setup to check that dim-screen
 taps, multi-touch, swipes, and delayed clicks only wake the app, while the next
 gesture works normally.
+Run `node tests/browser-jigsaw.cjs` with the same setup to check that only a
+piece's shape can be grabbed, that a piece carried by a knob seats by its
+center and slides home, and that a finished puzzle shows no backdrop through
+its cuts. The gap check first proves it can see a piece moved 3 px.
+`node --test tests/*.test.js` includes the cut geometry: shared cuts, flat
+borders, knob size, and that every knob's head is wider than its neck.
 Run `node tests/browser-multitouch.cjs` with the same setup to drag two pieces
 at once with real touch input in portrait and landscape, lift one finger while
 the other keeps dragging, and measure the wrong-slot shake and glow frame by

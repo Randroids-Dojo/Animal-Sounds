@@ -113,7 +113,7 @@ const path = require("node:path");
       const sample = () => {
         const style = getComputedStyle(target);
         const matrix = style.transform === "none" ? null : new DOMMatrixReadOnly(style.transform);
-        const reds = [...style.boxShadow.matchAll(/rgba\(232, 80, 80, ([\d.]+)\)/g)].map((match) => Number(match[1]));
+        const reds = [...style.filter.matchAll(/rgba\(232, 80, 80, ([\d.]+)\)/g)].map((match) => Number(match[1]));
         window.mismatchFrames.push({
           t: performance.now() - began,
           mismatch: target.classList.contains("mismatch"),

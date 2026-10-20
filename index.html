@@ -18,6 +18,7 @@
   <script defer src="touch-intent.js"></script>
   <script defer src="alphabet.js"></script>
   <script defer src="lessons.js"></script>
+  <script defer src="jigsaw.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body data-page="animals">
@@ -58,6 +59,25 @@
           <h3 id="puzzle-pieces-label">Mixed-up pieces</h3>
           <div id="puzzle-tray" aria-label="Mixed-up puzzle pieces"></div>
         </section>
+        <!-- Shared by every piece, drag ghost, and the board's faint guide.
+             app.js fills #puzzle-cuts with this round's piece shapes. -->
+        <svg id="puzzle-defs" width="0" height="0" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="puzzle-sky" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#BFE6F6"/>
+              <stop offset="0.7" stop-color="#F2F9F1"/>
+            </linearGradient>
+            <!-- 300 units square (three cells), plus a margin for the bleed. -->
+            <g id="puzzle-scene">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky)"/>
+              <path d="M-10 224 L 0 222 C 70 204 130 200 190 210 S 270 214 300 206 L 310 205 V 310 H -10 Z" fill="#B9E2A8"/>
+            </g>
+            <filter id="puzzle-hue" color-interpolation-filters="sRGB">
+              <feColorMatrix id="puzzle-hue-rotate" type="hueRotate" values="0"/>
+            </filter>
+          </defs>
+          <defs id="puzzle-cuts"></defs>
+        </svg>
         <div id="puzzle-success" aria-live="assertive" hidden>
           <strong class="success-message">You did it!</strong>
           <span class="success-star" aria-hidden="true">★</span>

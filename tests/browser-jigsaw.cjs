@@ -1,0 +1,234 @@
+"use strict";
+
+// Run against the local static server (or pass a deployed URL). Checks the
+// jigsaw itself with real touch input: only a piece's shape can be grabbed, a
+// piece lands where its own center is (even when carried by a knob), it slides
+// into place, and a finished puzzle is one seamless picture. The seam check
+// compares pixels and first proves it can see a 3 px misplacement.
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+(async () => {
+  const browser = await chromium.launch({ channel: "chrome", headless: true });
+  const context = await browser.newContext({ viewport: { width: 800, height: 1340 }, hasTouch: true });
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const evidence = fs.mkdtempSync(path.join(os.tmpdir(), "animal-puzzle-jigsaw-"));
+  const center = async (locator) => {
+    const rect = await locator.boundingBox();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  };
+  const touch = async (type, points) => cdp.send("Input.dispatchTouchEvent", {
+    type,
+    touchPoints: points.map((point) => ({ ...point, radiusX: 10, radiusY: 8, force: 1 })),
+  });
+  const settle = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const between = (from, to, t) => ({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t });
+  const drag = async (from, to, id = 1) => {
+    await touch("touchStart", [{ ...from, id }]);
+    for (let step = 1; step <= 8; step += 1) await touch("touchMove", [{ ...between(from, to, step / 8), id }]);
+    await settle();
+    await touch("touchEnd", []);
+    await settle();
+  };
+  const slotFor = (index) => page.locator(`.puzzle-slot[data-index="${index}"]`);
+
+  // Picture pixels inside the board's frame, read back from a screenshot.
+  async function boardPixels() {
+    const box = await page.evaluate(() => {
+      const board = document.getElementById("puzzle-board").getBoundingClientRect();
+      const border = parseFloat(getComputedStyle(document.getElementById("puzzle-board")).borderTopWidth);
+      return { x: board.x + border, y: board.y + border, width: board.width - 2 * border, height: board.height - 2 * border };
+    });
+    const clip = { x: Math.ceil(box.x), y: Math.ceil(box.y), width: Math.floor(box.width) - 1, height: Math.floor(box.height) - 1 };
+    const png = await page.screenshot({ clip });
+    return page.evaluate(async ({ data, width, height }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${data}`;
+      await image.decode();
+      const canvas = Object.assign(document.createElement("canvas"), { width, height });
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0);
+      return Array.from(context.getImageData(0, 0, width, height).data);
+    }, { data: png.toString("base64"), width: clip.width, height: clip.height }).then((pixels) => ({ pixels, ...clip }));
+  }
+
+  function differingPixels(a, b, threshold) {
+    let count = 0;
+    for (let i = 0; i < a.width * a.height; i += 1) {
+      let delta = 0;
+      for (let channel = 0; channel < 3; channel += 1) delta = Math.max(delta, Math.abs(a.pixels[i * 4 + channel] - b.pixels[i * 4 + channel]));
+      if (delta > threshold) count += 1;
+    }
+    return count;
+  }
+
+  // Seated pieces must hide the board completely: any pixel whose color
+  // changes with the backdrop behind them is a gap.
+  async function seeThrough() {
+    const board = page.locator("#puzzle-board");
+    await board.evaluate((element) => { element.style.background = "#F0F"; });
+    await settle();
+    const magenta = await boardPixels();
+    await board.evaluate((element) => { element.style.background = "#0F0"; });
+    await settle();
+    const green = await boardPixels();
+    return { magenta, gaps: differingPixels(magenta, green, 12) };
+  }
+
+  try {
+    await page.goto(process.argv[2] || "http://127.0.0.1:8642");
+    await page.locator(".tile").first().waitFor();
+    await page.locator("#idle-dim").tap();
+    await page.getByRole("button", { name: "🧩 Puzzle", exact: true }).tap();
+    await settle();
+    await page.screenshot({ path: path.join(evidence, "round.png") });
+
+    assert.equal(await page.locator("#puzzle-cuts mask").count(), 9, "one cut shape per piece");
+    assert.equal(await page.locator("#puzzle-tray .puzzle-piece svg [mask]").count(), 9, "each piece shows only its own cut");
+    assert.equal(await page.locator("#puzzle-board .slot-edge").count(), 9, "the board outlines every piece");
+
+    // Find a tray piece with a knob, and that knob's tip on screen.
+    const knob = await page.evaluate(() => {
+      const span = parseFloat(getComputedStyle(document.getElementById("puzzle-screen")).getPropertyValue("--piece-span"));
+      let best = null;
+      for (const piece of document.querySelectorAll("#puzzle-tray .puzzle-piece")) {
+        const edge = piece.querySelector(".piece-edge");
+        const matrix = edge.getScreenCTM();
+        const box = piece.getBoundingClientRect();
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        const half = box.width / span / 2;
+        const length = edge.getTotalLength();
+        for (let at = 0; at <= length; at += length / 600) {
+          const point = edge.getPointAtLength(at);
+          const x = matrix.a * point.x + matrix.c * point.y + matrix.e;
+          const y = matrix.b * point.x + matrix.d * point.y + matrix.f;
+          const out = Math.max(Math.abs(x - cx) - half, Math.abs(y - cy) - half);
+          if (!best || out > best.out) best = { index: piece.dataset.index, x, y, cx, cy, out, cell: 2 * half, box: { left: box.left, top: box.top } };
+        }
+      }
+      const owner = (x, y) => document.elementFromPoint(x, y)?.closest(".puzzle-piece")?.dataset.index ?? null;
+      const length = Math.hypot(best.x - best.cx, best.y - best.cy);
+      const direction = { x: (best.x - best.cx) / length, y: (best.y - best.cy) / length };
+      const grip = { x: best.x - direction.x * 4, y: best.y - direction.y * 4 };
+      return {
+        ...best,
+        direction,
+        grip,
+        gripOwner: owner(grip.x, grip.y),
+        cornerOwner: owner(best.box.left + 3, best.box.top + 3),
+      };
+    });
+    assert.ok(knob.out > 0.2 * knob.cell, `found a knob that sticks out ${knob.out.toFixed(1)} px`);
+    assert.equal(knob.gripOwner, knob.index, "a knob's tip can be grabbed");
+    assert.notEqual(knob.cornerOwner, knob.index, "a piece's empty box corner cannot be grabbed");
+
+    // Carry the piece by its knob. Its center lands a fifth of a cell from its
+    // spot, toward the knob, so the finger itself ends up outside that spot.
+    const home = await center(slotFor(knob.index));
+    const landing = { x: home.x + knob.direction.x * 0.2 * knob.cell, y: home.y + knob.direction.y * 0.2 * knob.cell };
+    const release = { x: knob.grip.x + landing.x - knob.cx, y: knob.grip.y + landing.y - knob.cy };
+    const homeBox = await slotFor(knob.index).boundingBox();
+    assert.ok(release.x < homeBox.x || release.x > homeBox.x + homeBox.width
+      || release.y < homeBox.y || release.y > homeBox.y + homeBox.height, "the finger lets go outside the piece's spot");
+    await touch("touchStart", [{ ...knob.grip, id: 1 }]);
+    for (let step = 1; step <= 8; step += 1) await touch("touchMove", [{ ...between(knob.grip, release, step / 8), id: 1 }]);
+    await settle();
+    const ghost = await center(page.locator(".puzzle-piece.dragging"));
+    assert.ok(Math.hypot(ghost.x - landing.x, ghost.y - landing.y) < 1, "the carried piece keeps its grip offset");
+    await page.screenshot({ path: path.join(evidence, "carried-by-knob.png") });
+    // Sample the seating motion every frame from the moment the finger lifts.
+    await page.evaluate((index) => {
+      window.snapFrames = [];
+      const began = performance.now();
+      const sample = () => {
+        const piece = document.querySelector(`.puzzle-slot.filled[data-index="${index}"] .puzzle-piece`);
+        if (piece) {
+          const rect = piece.getBoundingClientRect();
+          window.snapFrames.push({ t: performance.now() - began, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, animating: piece.getAnimations().length });
+        }
+        if (performance.now() - began < 500) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    }, knob.index);
+    await touch("touchEnd", []);
+    await page.waitForFunction(() => window.snapFrames.length && window.snapFrames.at(-1).t >= 480);
+    assert.equal(await page.locator(`.puzzle-slot.filled[data-index="${knob.index}"]`).count(), 1, "the piece seats by its center");
+    const frames = await page.evaluate(() => window.snapFrames);
+    const offset = (frame) => Math.hypot(frame.x - home.x, frame.y - home.y);
+    const snap = {
+      startOffsetPx: Number(offset(frames[0]).toFixed(1)),
+      settledAtMs: Math.round(frames.find((frame) => !frame.animating).t - frames[0].t),
+      finalOffsetPx: Number(offset(frames.at(-1)).toFixed(2)),
+      frames: frames.length,
+    };
+    assert.ok(snap.startOffsetPx > 0.1 * knob.cell, `the piece starts where it was let go: ${snap.startOffsetPx}px`);
+    assert.ok(snap.settledAtMs < 300, `the piece slides home quickly: ${snap.settledAtMs}ms`);
+    assert.ok(snap.finalOffsetPx < 0.5, `the piece ends exactly in its spot: ${snap.finalOffsetPx}px`);
+
+    // Finish the puzzle, then freeze the celebration at its first frame.
+    while (await page.locator("#puzzle-tray .puzzle-piece").count()) {
+      const piece = page.locator("#puzzle-tray .puzzle-piece").first();
+      const index = await piece.getAttribute("data-index");
+      await drag(await center(piece), await center(slotFor(index)), 2);
+      assert.equal(await page.locator(`.puzzle-slot.filled[data-index="${index}"]`).count(), 1, `piece ${index} seats`);
+    }
+    await page.evaluate(() => {
+      document.getAnimations().forEach((animation) => {
+        if (animation.effect?.target?.classList?.contains("puzzle-slot")) {
+          animation.pause();
+          animation.currentTime = 0;
+        } else animation.finish();
+      });
+      document.getElementById("puzzle-success").style.visibility = "hidden";
+    });
+    await settle();
+    await page.screenshot({ path: path.join(evidence, "assembled.png") });
+
+    // Without the cut lines, the seated pieces must reproduce the full picture.
+    await page.addStyleTag({ content: ".piece-edge, .puzzle-guide { visibility: hidden; }" });
+    const assembled = await seeThrough();
+    await page.locator("#puzzle-board").screenshot({ path: path.join(evidence, "assembled-on-green.png") });
+    await page.evaluate(() => {
+      const reference = document.querySelector(".puzzle-guide").cloneNode(true);
+      reference.id = "reference-picture";
+      reference.querySelectorAll(".slot-edge").forEach((edge) => edge.remove());
+      reference.querySelector(".puzzle-hint").removeAttribute("class");
+      Object.assign(reference.style, { zIndex: "40", visibility: "visible" });
+      document.getElementById("puzzle-board").append(reference);
+    });
+    await settle();
+    const reference = await boardPixels();
+    await page.evaluate(() => document.getElementById("reference-picture").remove());
+    // Each piece is pixel-snapped on its own, so outlines may jog by under a
+    // pixel at a cut; only those few pixels may differ from the whole picture.
+    const misregistered = differingPixels(assembled.magenta, reference, 100);
+    const seams = { gaps: assembled.gaps, misregisteredPct: Number((100 * misregistered / (reference.width * reference.height)).toFixed(3)) };
+
+    // Prove both checks see a misplaced piece before trusting them. Pieces
+    // overlap their neighbors by about 1.5 px, so shift one farther.
+    await page.evaluate(() => {
+      document.querySelector('.puzzle-slot[data-index="4"] .puzzle-piece').style.translate = "3px 0";
+    });
+    const shifted = await seeThrough();
+    const shiftedMisregistered = differingPixels(shifted.magenta, reference, 100);
+    assert.ok(shifted.gaps > 100, `the gap check sees a 3 px misplacement: ${shifted.gaps} px`);
+    assert.ok(shiftedMisregistered > 4 * misregistered, `the picture check sees it too: ${shiftedMisregistered} vs ${misregistered} px`);
+    assert.equal(seams.gaps, 0, `seated pieces leave no gaps: ${seams.gaps} px show the backdrop`);
+    assert.ok(seams.misregisteredPct < 0.2, `seated pieces line up with the picture: ${seams.misregisteredPct}% differ`);
+    assert.deepEqual(errors, []);
+    console.log(JSON.stringify({ passed: true, evidence, knobPx: Number(knob.out.toFixed(1)), snap, seams, shifted3px: { gaps: shifted.gaps, misregistered: shiftedMisregistered } }, null, 2));
+  } catch (error) {
+    await page.screenshot({ path: path.join(evidence, "failure.png") });
+    console.error(evidence);
+    throw error;
+  } finally {
+    await browser.close();
+  }
+})().catch((error) => { console.error(error); process.exitCode = 1; });

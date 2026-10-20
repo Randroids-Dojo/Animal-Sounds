@@ -19,9 +19,10 @@ const FIRST_BREAK_MS = 3 * 60 * 60 * 1000;
 const MAX_BREAK_MS = 3 * 60 * 60 * 1000;
 const IDLE_DIM_MS = 45 * 1000;
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
-const PUZZLE_COLORS = ["#FFE6A7", "#C9EDD3", "#FFD7DB", "#E3DCFA", "#FFDFC2"];
 const PUZZLE_GRID_SIZE = 3;
 const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
+const PUZZLE_SNAP_MS = 170;
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
@@ -44,6 +45,8 @@ const puzzleTray = document.getElementById("puzzle-tray");
 const puzzleScreen = document.getElementById("puzzle-screen");
 const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
+const puzzleCuts = document.getElementById("puzzle-cuts");
+const puzzleHueRotate = document.getElementById("puzzle-hue-rotate");
 const pages = document.getElementById("pages");
 const pageTabs = document.querySelectorAll("[data-page-target]");
 let playViewport = { width: 0, height: 0, rotation: 0 };
@@ -337,6 +340,8 @@ async function init() {
   renderAlphabet(await alphabetResponse.json());
   renderLessons();
   showPage("animals");
+  // A piece's box is its cell plus room for knobs on every side.
+  puzzleScreen.style.setProperty("--piece-span", String((Jigsaw.SIZE + 2 * Jigsaw.PAD) / Jigsaw.SIZE));
   newPuzzle();
   showIdleDim();
   updateScreenTime();
@@ -500,21 +505,51 @@ function shuffled(values) {
   return result;
 }
 
-function puzzlePosition(index) {
-  const column = index % PUZZLE_GRID_SIZE;
-  const row = Math.floor(index / PUZZLE_GRID_SIZE);
-  const step = 100 / (PUZZLE_GRID_SIZE - 1);
-  return `${column * step}% ${row * step}%`;
+function svgElement(name, attributes = {}) {
+  const element = document.createElementNS(SVG_NS, name);
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+  return element;
 }
 
-function stylePuzzlePart(part, animal, index) {
-  part.style.backgroundImage = `url("${animal.image}")`;
-  part.style.backgroundPosition = puzzlePosition(index);
-  part.style.backgroundColor = PUZZLE_COLORS[index % PUZZLE_COLORS.length];
+// The whole puzzle picture in jigsaw units: the scenery, then the animal.
+function puzzlePicture(animal) {
+  const size = Jigsaw.SIZE * PUZZLE_GRID_SIZE;
+  const image = svgElement("image", { href: animal.image, width: size, height: size });
+  if (animal.hue) image.setAttribute("filter", "url(#puzzle-hue)");
+  const picture = svgElement("g");
+  picture.append(svgElement("use", { href: "#puzzle-scene" }), image);
+  return picture;
 }
 
-function stylePuzzleSlot(slot, index) {
-  slot.style.backgroundColor = PUZZLE_COLORS[index % PUZZLE_COLORS.length];
+// Each piece shows only its own cut of the picture, so placed neighbors
+// continue the image across their shared knobs.
+function puzzlePieceArt(animal, index, shape) {
+  const { x, y, size } = Jigsaw.pieceBox(index % PUZZLE_GRID_SIZE, Math.floor(index / PUZZLE_GRID_SIZE));
+  const art = svgElement("svg", { viewBox: `${x} ${y} ${size} ${size}`, "aria-hidden": "true" });
+  const picture = puzzlePicture(animal);
+  picture.setAttribute("mask", `url(#puzzle-cut-${index})`);
+  art.append(
+    svgElement("path", { class: "piece-hit", d: shape }),
+    picture,
+    svgElement("path", { class: "piece-edge", d: shape }),
+  );
+  return art;
+}
+
+// The board shows a faint copy of the picture with every piece's outline.
+function renderPuzzleBoard(animal, shapes) {
+  const size = Jigsaw.SIZE * PUZZLE_GRID_SIZE;
+  const guide = svgElement("svg", { class: "puzzle-guide", viewBox: `0 0 ${size} ${size}`, "aria-hidden": "true" });
+  const hint = puzzlePicture(animal);
+  hint.setAttribute("class", "puzzle-hint");
+  guide.append(hint, ...shapes.map((shape) => svgElement("path", { class: "slot-edge", d: shape })));
+  const slots = shapes.map((_, index) => {
+    const slot = document.createElement("div");
+    slot.className = "puzzle-slot";
+    slot.dataset.index = index;
+    return slot;
+  });
+  puzzleBoard.replaceChildren(guide, ...slots);
 }
 
 function choosePuzzleAnimal() {
@@ -575,7 +610,9 @@ function completePuzzle() {
   }, 4200);
 }
 
-function placePuzzlePiece(piece, slot) {
+// from is where the dragged piece's box was released, in play coordinates.
+// The piece slides the rest of the way into its spot with a click.
+function placePuzzlePiece(piece, slot, from) {
   if (puzzleCompleting || piece.disabled || slot.classList.contains("filled")) return;
   resetDraggedPiece(piece);
   piece.classList.remove("dropped", "mismatch");
@@ -585,6 +622,14 @@ function placePuzzlePiece(piece, slot) {
   piece.disabled = true;
   piece.classList.add("placed");
   piece.setAttribute("aria-label", "Piece in the right place");
+  if (from && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const to = puzzleRect(piece);
+    piece.animate([
+      { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(1.06)` },
+      { transform: "none" },
+    ], { duration: PUZZLE_SNAP_MS, easing: "cubic-bezier(0.2, 0.9, 0.3, 1.15)" });
+  }
+  playSnapSound();
   puzzlePlaced = puzzleBoard.querySelectorAll(".puzzle-slot.filled").length;
   if (puzzlePlaced === PUZZLE_PIECE_COUNT) completePuzzle();
 }
@@ -634,11 +679,13 @@ function movePuzzlePiece(event) {
   ghost.style.top = `${point.y - offsetY}px`;
 }
 
-// The dragged piece's faded original may still cover a slot, so look beneath
-// it to find where the finger let go.
-function puzzleSlotAt(x, y, piece) {
-  const target = document.elementsFromPoint(x, y).find((element) => element !== piece);
-  return target?.closest(".puzzle-slot") || null;
+// A piece lands where its own center is (in play coordinates), not where the
+// finger is, so a piece carried by a knob still fits the spot it is shown over.
+function puzzleSlotAt(x, y) {
+  return [...puzzleBoard.querySelectorAll(".puzzle-slot")].find((slot) => {
+    const rect = puzzleRect(slot);
+    return x >= rect.left && x < rect.left + rect.width && y >= rect.top && y < rect.top + rect.height;
+  }) || null;
 }
 
 function endPuzzleDrag(event) {
@@ -646,12 +693,14 @@ function endPuzzleDrag(event) {
   const drag = puzzleDrags.get(event.pointerId);
   if (!drag) return;
   puzzleDrags.delete(event.pointerId);
-  const { piece, ghost, offsetX, offsetY } = drag;
+  const { piece, ghost, offsetX, offsetY, size } = drag;
   if (piece.hasPointerCapture(event.pointerId)) piece.releasePointerCapture(event.pointerId);
-  const slot = puzzleSlotAt(event.clientX, event.clientY, piece);
+  const point = puzzlePoint(event.clientX, event.clientY);
+  const released = { left: point.x - offsetX, top: point.y - offsetY };
+  const slot = puzzleSlotAt(released.left + size / 2, released.top + size / 2);
   removeDragGhost(ghost);
   if (slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
-    placePuzzlePiece(piece, slot);
+    placePuzzlePiece(piece, slot, released);
   } else if (event.type === "pointerup") {
     leavePuzzlePiece(piece, event, offsetX, offsetY);
     if (slot) showPuzzleMismatch(piece);
@@ -671,7 +720,7 @@ function claimPuzzleDrag(candidate, event) {
     if (other.piece === piece) puzzleDragCandidates.delete(pointerId);
   });
   const rect = candidate.rect;
-  const ghost = piece.cloneNode(false);
+  const ghost = piece.cloneNode(true);
   ghost.className = "puzzle-piece dragging";
   ghost.setAttribute("aria-hidden", "true");
   ghost.style.cssText = piece.style.cssText;
@@ -688,6 +737,7 @@ function claimPuzzleDrag(candidate, event) {
     startY: candidate.startY,
     offsetX: start.x - rect.left,
     offsetY: start.y - rect.top,
+    size: rect.width,
     moved: event.pointerType === "touch",
   });
   piece.setPointerCapture(event.pointerId);
@@ -714,13 +764,13 @@ function beginPuzzleDrag(event) {
   else puzzleDragCandidates.set(event.pointerId, candidate);
 }
 
-function createPuzzlePiece(animal, index) {
+function createPuzzlePiece(animal, index, shape) {
   const piece = document.createElement("button");
   piece.type = "button";
   piece.className = "puzzle-piece";
   piece.dataset.index = index;
   piece.setAttribute("aria-label", "Puzzle piece");
-  stylePuzzlePart(piece, animal, index);
+  piece.append(puzzlePieceArt(animal, index, shape));
   piece.addEventListener("pointerdown", beginPuzzleDrag);
   piece.addEventListener("animationend", (event) => {
     if (event.animationName === "puzzle-mismatch-glow") piece.classList.remove("mismatch");
@@ -738,26 +788,52 @@ function newPuzzle() {
   currentPuzzleAnimal = choosePuzzleAnimal();
   puzzlePlaced = 0;
   puzzleScreen.querySelectorAll(".puzzle-piece.dropped").forEach((piece) => piece.remove());
-  puzzleBoard.replaceChildren();
-  puzzleTray.replaceChildren();
   puzzleName.textContent = `Build a ${currentPuzzleAnimal.name}!`;
-  for (let index = 0; index < PUZZLE_PIECE_COUNT; index += 1) {
-    const slot = document.createElement("div");
-    slot.className = "puzzle-slot";
-    slot.dataset.index = index;
-    stylePuzzleSlot(slot, index);
-    puzzleBoard.append(slot);
-  }
-  for (const index of shuffled([...Array(PUZZLE_PIECE_COUNT).keys()])) {
-    puzzleTray.append(createPuzzlePiece(currentPuzzleAnimal, index));
-  }
+  // Fresh cuts every round, so the same animal comes apart differently.
+  const cuts = Jigsaw.createCuts(PUZZLE_GRID_SIZE, PUZZLE_GRID_SIZE);
+  const shapes = [...Array(PUZZLE_PIECE_COUNT).keys()].map((index) =>
+    Jigsaw.piecePath(cuts, index % PUZZLE_GRID_SIZE, Math.floor(index / PUZZLE_GRID_SIZE)));
+  // Masks rather than clip paths: the stroke lets each piece reach just past
+  // its cut, under its neighbor, so pixel snapping can never open a gap.
+  puzzleCuts.replaceChildren(...shapes.map((shape, index) => {
+    const { x, y, size } = Jigsaw.pieceBox(index % PUZZLE_GRID_SIZE, Math.floor(index / PUZZLE_GRID_SIZE));
+    const mask = svgElement("mask", { id: `puzzle-cut-${index}`, maskUnits: "userSpaceOnUse", x, y, width: size, height: size });
+    mask.append(svgElement("path", { class: "cut-mask", d: shape }));
+    return mask;
+  }));
+  puzzleHueRotate.setAttribute("values", String(currentPuzzleAnimal.hue || 0));
+  renderPuzzleBoard(currentPuzzleAnimal, shapes);
+  puzzleTray.replaceChildren(...shuffled([...shapes.keys()])
+    .map((index) => createPuzzlePiece(currentPuzzleAnimal, index, shapes[index])));
+}
+
+function puzzleAudio() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+  audioContext ||= new AudioContext();
+  audioContext.resume?.();
+  return audioContext;
+}
+
+// A short, quiet wooden click as a piece seats itself.
+function playSnapSound() {
+  if (!puzzleAudio()) return;
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = "triangle";
+  oscillator.frequency.setValueAtTime(900, now);
+  oscillator.frequency.exponentialRampToValueAtTime(420, now + 0.06);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.12, now + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+  oscillator.connect(gain).connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.1);
 }
 
 function playSuccessChime() {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) return;
-  audioContext ||= new AudioContext();
-  audioContext.resume?.();
+  if (!puzzleAudio()) return;
   const now = audioContext.currentTime;
   [523.25, 659.25, 783.99].forEach((frequency, index) => {
     const oscillator = audioContext.createOscillator();

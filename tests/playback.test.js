@@ -68,6 +68,7 @@ function setup({ duration = 6, apiReady = true } = {}) {
     fetch: () => new Promise(() => {}),
     AlphabetCards: require("../alphabet.js"),
     LessonScenes: require("../lessons.js"),
+    Jigsaw: require("../jigsaw.js"),
     performance: { now: () => now },
     requestAnimationFrame: callback => schedule(() => callback(now), 16),
     cancelAnimationFrame: id => timers.delete(id),

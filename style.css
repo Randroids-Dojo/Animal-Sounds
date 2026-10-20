@@ -269,12 +269,18 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   padding: 4px var(--safe-edge) var(--safe-edge);
   background: linear-gradient(155deg, #E3DCFA 0%, var(--sky) 48%, #C9EDD3 100%);
   touch-action: none;
-  --puzzle-width: min(
-    calc(var(--play-width) * 0.8),
-    calc(var(--play-width) - 2 * var(--safe-edge) - 28px),
-    360px,
-    calc((var(--play-height) - var(--header-height, 100px) - 152px - var(--safe-edge)) / 2)
+  /* A piece's box over its cell's side; app.js sets it from jigsaw.js. */
+  --piece-span: 1.56;
+  /* One cell of the picture. Three piece boxes must fit across the tray, and
+     the board's three cells plus the tray's three rows must fit below the
+     header together with the headings. */
+  --puzzle-cell: min(
+    140px,
+    calc((var(--play-width) - 2 * var(--safe-edge) - 32px) / (3 * var(--piece-span))),
+    calc((var(--play-height) - var(--header-height, 100px) - var(--safe-edge) - 200px) / (3 + 3 * var(--piece-span)))
   );
+  --puzzle-width: calc(3 * var(--puzzle-cell));
+  --piece-size: calc(var(--puzzle-cell) * var(--piece-span));
 }
 
 .puzzle-heading {
@@ -302,17 +308,8 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   opacity: 0.62;
 }
 
-#puzzle-board,
-#puzzle-tray {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  width: var(--puzzle-width);
-  margin-inline: auto;
-}
-
 .puzzle-section > h3 {
-  width: var(--puzzle-width);
+  width: fit-content;
   margin: 10px auto 5px;
   color: #635A91;
   font-size: 0.76rem;
@@ -320,57 +317,107 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   text-transform: uppercase;
 }
 
+/* The board is the picture's frame: a faint copy of the picture with each
+   piece's outline, and one slot per cell for the pieces to seat in. */
 #puzzle-board {
-  padding: 7px;
+  position: relative;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  width: calc(var(--puzzle-width) + 14px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border: 7px solid #FFF6DA;
   border-radius: 22px;
   background: #FFF6DA;
   box-shadow: 0 7px 0 rgba(59, 53, 96, 0.12);
 }
 
-.puzzle-slot,
-.puzzle-piece {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: 13px;
-  background-repeat: no-repeat;
-  background-size: 300% 300%;
+.puzzle-guide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.puzzle-hint {
+  opacity: 0.3;
+}
+
+.slot-edge {
+  fill: none;
+  stroke: rgba(59, 53, 96, 0.4);
+  stroke-width: 2px;
+  stroke-dasharray: 7 5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .puzzle-slot {
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 3px dashed rgba(59, 53, 96, 0.25);
-  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.38);
+  position: relative;
+  min-width: 0;
 }
 
-.puzzle-slot.filled {
-  border-style: solid;
-  border-color: rgba(59, 53, 96, 0.12);
+.cut-mask {
+  fill: #FFF;
+  stroke: #FFF;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+#puzzle-defs {
+  position: absolute;
 }
 
 #puzzle-tray {
-  margin-top: 0;
-  padding: 8px;
-  border-radius: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, var(--piece-size));
+  gap: 6px;
+  width: fit-content;
+  margin-inline: auto;
+  padding: 10px;
+  border-radius: 24px;
   background: rgba(255, 255, 255, 0.65);
 }
 
+/* Only the jigsaw shape and a fingertip's margin around it can be grabbed,
+   so a loose piece's empty corners never cover another piece. */
 .puzzle-piece {
+  position: relative;
+  display: block;
+  width: var(--piece-size);
+  aspect-ratio: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   appearance: none;
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 3px 0 rgba(59, 53, 96, 0.2);
   cursor: grab;
   touch-action: none;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 0 rgba(59, 53, 96, 0.2));
 }
 
-.puzzle-piece::after {
-  position: absolute;
-  inset: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  border-radius: 8px;
-  content: "";
-  pointer-events: none;
+.puzzle-piece svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.piece-hit {
+  fill: none;
+  stroke: none;
+  stroke-width: 20;
+  stroke-linejoin: round;
+  pointer-events: all;
+}
+
+.piece-edge {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .puzzle-piece:focus-visible {
@@ -381,12 +428,16 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
 .puzzle-piece.dragging {
   position: fixed;
   z-index: 30;
-  margin: 0;
-  pointer-events: none;
   cursor: grabbing;
-  opacity: 0.94;
-  transform: scale(1.08) rotate(3deg);
-  box-shadow: 0 12px 20px rgba(20, 18, 39, 0.28);
+  opacity: 0.96;
+  transform: scale(1.06);
+  filter: drop-shadow(0 12px 10px rgba(20, 18, 39, 0.3));
+  will-change: transform;
+}
+
+.puzzle-piece.dragging .piece-hit,
+.puzzle-piece.placed .piece-hit {
+  pointer-events: none;
 }
 
 .puzzle-piece.drag-source {
@@ -396,7 +447,6 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
 .puzzle-piece.dropped {
   position: absolute;
   z-index: 3;
-  margin: 0;
 }
 
 /* A piece left on the wrong slot shakes a little and glows faint red. */
@@ -416,27 +466,30 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
 
 @keyframes puzzle-mismatch-glow {
   0%, 20% {
-    box-shadow: 0 3px 0 rgba(59, 53, 96, 0.2), 0 0 0 3px rgba(232, 80, 80, 0.4), 0 0 18px 6px rgba(232, 80, 80, 0.35);
+    filter: drop-shadow(0 3px 0 rgba(59, 53, 96, 0.2)) drop-shadow(0 0 3px rgba(232, 80, 80, 0.4)) drop-shadow(0 0 10px rgba(232, 80, 80, 0.35));
   }
   100% {
-    box-shadow: 0 3px 0 rgba(59, 53, 96, 0.2), 0 0 0 3px rgba(232, 80, 80, 0), 0 0 18px 6px rgba(232, 80, 80, 0);
+    filter: drop-shadow(0 3px 0 rgba(59, 53, 96, 0.2)) drop-shadow(0 0 3px rgba(232, 80, 80, 0)) drop-shadow(0 0 10px rgba(232, 80, 80, 0));
   }
+}
+
+/* A seated piece overhangs its cell by the knob room on every side, so its
+   knobs sit in the neighbors' sockets. */
+.puzzle-slot.filled > .puzzle-piece {
+  position: absolute;
+  inset: calc((1 - var(--piece-span)) * 50%);
+  width: auto;
+  aspect-ratio: auto;
 }
 
 .puzzle-piece.placed {
-  box-shadow: none;
   cursor: default;
+  filter: none;
 }
 
-.puzzle-slot.filled > .puzzle-piece {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  aspect-ratio: auto;
-  border-radius: 10px;
+.puzzle-piece.placed .piece-edge {
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 1.5px;
 }
 
 #puzzle-success {
