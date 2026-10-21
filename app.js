@@ -22,6 +22,8 @@ const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
 const PUZZLE_GRID_SIZE = 3;
 const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
 const PUZZLE_SNAP_MS = 170;
+// The completion chime has faded by then, and "You did it!" is showing.
+const PUZZLE_NAME_DELAY_MS = 700;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
@@ -598,6 +600,7 @@ function completePuzzle() {
   puzzleCompleting = true;
   cancelPuzzleDrag();
   playSuccessChime();
+  speakAfter(PUZZLE_NAME_DELAY_MS, currentPuzzleAnimal.name);
   puzzleScreen.classList.add("puzzle-complete");
   puzzleSuccess.hidden = false;
   puzzleSuccess.classList.remove("playing");
@@ -924,8 +927,10 @@ const voiceClips = new Map();
 let currentClip = null;
 let speechRequest = 0;
 let speechCleanup = null;
+let speechTimer = null;
 
 function stopSpeech() {
+  clearTimeout(speechTimer);
   speechRequest += 1;
   if (currentClip) {
     currentClip.pause();
@@ -967,6 +972,13 @@ function speak(name, { audioPath, onEnd, onStop } = {}) {
   clip.play()?.catch(() => {
     if (request === speechRequest) speakFallback(name, finish, fail);
   });
+}
+
+// Waits for a celebration sound first. Anything that stops speech before then,
+// such as leaving the page or a screen-time lock, cancels the name too.
+function speakAfter(delay, name) {
+  stopSpeech();
+  speechTimer = setTimeout(() => speak(name), delay);
 }
 
 function speakFallback(name, onEnd, onError) {

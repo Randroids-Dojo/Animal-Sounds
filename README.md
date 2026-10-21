@@ -50,8 +50,11 @@ The videos come from this YouTube playlist:
   and seated neighbors join into one seamless picture. Only a piece's shape,
   plus a fingertip's margin, can be grabbed, so a loose piece's empty corners
   never block another piece. A star, particles, and chime celebrate a
-  completed puzzle before a new randomized round appears. The puzzle stays
-  fixed in the viewport; it does not scroll.
+  completed puzzle. Once the chime fades (0.7 s), the animal's name plays in
+  Randy's voice, the same recording its tile uses, and a new randomized round
+  appears 4.2 s after completion. Leaving the tab, a screen-time lock, or
+  hiding the app before then cancels the name. The puzzle stays fixed in the
+  viewport; it does not scroll.
   Several fingers can drag several pieces at once, and each piece keeps
   tracking its own finger; a second finger cannot take a piece that is already
   being carried. A contact does not own a piece until it moves with drag intent,
@@ -263,7 +266,9 @@ gesture works normally.
 Run `node tests/browser-jigsaw.cjs` with the same setup to check that only a
 piece's shape can be grabbed, that a piece carried by a knob seats by its
 center and slides home, and that a finished puzzle shows no backdrop through
-its cuts. The gap check first proves it can see a piece moved 3 px.
+its cuts. The gap check first proves it can see a piece moved 3 px. It also
+logs every recording's play, pause and end to check that the animal's name
+plays once after the chime, in full, with no browser-speech fallback.
 `node --test tests/*.test.js` includes the cut geometry: shared cuts, flat
 borders, knob size, and that every knob's head is wider than its neck.
 Run `node tests/browser-multitouch.cjs` with the same setup to drag two pieces

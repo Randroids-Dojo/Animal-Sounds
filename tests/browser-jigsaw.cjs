@@ -4,7 +4,9 @@
 // jigsaw itself with real touch input: only a piece's shape can be grabbed, a
 // piece lands where its own center is (even when carried by a knob), it slides
 // into place, and a finished puzzle is one seamless picture. The seam check
-// compares pixels and first proves it can see a 3 px misplacement.
+// compares pixels and first proves it can see a 3 px misplacement. Every
+// recording's play, pause and end is logged, so the animal's name is checked
+// for being spoken after the chime, to the end, before the next round.
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -80,6 +82,28 @@ const path = require("node:path");
     const green = await boardPixels();
     return { magenta, gaps: differingPixels(magenta, green, 12) };
   }
+
+  await page.addInitScript(() => {
+    window.speechLog = [];
+    const log = (entry) => window.speechLog.push({ ...entry, t: performance.now() });
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function (...args) {
+      const src = this.getAttribute("src");
+      if (!this.speechLogged) {
+        this.speechLogged = true;
+        for (const event of ["playing", "pause", "ended"]) {
+          this.addEventListener(event, () => log({ event, src, at: this.currentTime, duration: this.duration }));
+        }
+      }
+      log({ event: "play", src });
+      return play.apply(this, args);
+    };
+    const speak = speechSynthesis.speak.bind(speechSynthesis);
+    speechSynthesis.speak = (utterance) => {
+      log({ event: "fallback", text: utterance.text });
+      speak(utterance);
+    };
+  });
 
   try {
     await page.goto(process.argv[2] || "http://127.0.0.1:8642");
@@ -173,6 +197,14 @@ const path = require("node:path");
     assert.ok(snap.finalOffsetPx < 0.5, `the piece ends exactly in its spot: ${snap.finalOffsetPx}px`);
 
     // Finish the puzzle, then freeze the celebration at its first frame.
+    await page.evaluate(() => {
+      new MutationObserver((_, observer) => {
+        if (!document.getElementById("puzzle-screen").classList.contains("puzzle-complete")) return;
+        window.completedAt = performance.now();
+        observer.disconnect();
+      }).observe(document.getElementById("puzzle-screen"), { attributes: true, attributeFilter: ["class"] });
+    });
+    const animalName = (await page.locator("#puzzle-name").textContent()).replace(/^Build an? |!$/g, "");
     while (await page.locator("#puzzle-tray .puzzle-piece").count()) {
       const piece = page.locator("#puzzle-tray .puzzle-piece").first();
       const index = await piece.getAttribute("data-index");
@@ -187,6 +219,8 @@ const path = require("node:path");
         } else animation.finish();
       });
       document.getElementById("puzzle-success").style.visibility = "hidden";
+      // Hold this round while the picture is measured; the name still plays.
+      clearTimeout(puzzleSuccessTimer);
     });
     await settle();
     await page.screenshot({ path: path.join(evidence, "assembled.png") });
@@ -222,8 +256,34 @@ const path = require("node:path");
     assert.ok(shiftedMisregistered > 4 * misregistered, `the picture check sees it too: ${shiftedMisregistered} vs ${misregistered} px`);
     assert.equal(seams.gaps, 0, `seated pieces leave no gaps: ${seams.gaps} px show the backdrop`);
     assert.ok(seams.misregisteredPct < 0.2, `seated pieces line up with the picture: ${seams.misregisteredPct}% differ`);
+
+    // The animal's own recording plays once the chime has faded, in full,
+    // and well before the next round would start 4.2 s after completion.
+    const clip = `audio/${animalName.toLowerCase().replace(/\s+/g, "-")}.mp3`;
+    await page.waitForFunction((src) => window.speechLog.some((entry) => entry.src === src
+      && (entry.event === "ended" || (entry.event === "pause" && entry.at < entry.duration - 0.05))), clip, { timeout: 5000 });
+    const { log, completedAt } = await page.evaluate(() => ({ log: window.speechLog, completedAt: window.completedAt }));
+    const after = log.filter((entry) => entry.t >= completedAt).map((entry) => ({ ...entry, ms: Math.round(entry.t - completedAt) }));
+    const name = after.filter((entry) => entry.src === clip);
+    const started = name.find((entry) => entry.event === "playing");
+    const ended = name.find((entry) => entry.event === "ended" || entry.event === "pause");
+    const spoken = {
+      clip,
+      startedMs: started.ms,
+      endedMs: ended.ms,
+      clipSeconds: Number(ended.duration.toFixed(2)),
+      cutShort: name.filter((entry) => entry.event === "pause" && entry.at < entry.duration - 0.05).length,
+      otherSounds: after.filter((entry) => entry.src !== clip).length,
+    };
+    assert.deepEqual(after.filter((entry) => entry.event === "fallback"), [], "the recording plays, not browser speech");
+    assert.equal(name.filter((entry) => entry.event === "play").length, 1, "the name is spoken once");
+    assert.ok(spoken.startedMs >= 650 && spoken.startedMs <= 1000, `the name follows the chime: ${spoken.startedMs} ms`);
+    assert.equal(spoken.cutShort, 0, "the name is not cut short");
+    assert.ok(spoken.endedMs - spoken.startedMs >= 1000 * spoken.clipSeconds - 50, "the whole clip plays");
+    assert.ok(spoken.endedMs < 4200 - 1000, `the name ends well before the next round: ${spoken.endedMs} ms`);
+    assert.equal(spoken.otherSounds, 0, "nothing else is spoken");
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ passed: true, evidence, knobPx: Number(knob.out.toFixed(1)), snap, seams, shifted3px: { gaps: shifted.gaps, misregistered: shiftedMisregistered } }, null, 2));
+    console.log(JSON.stringify({ passed: true, evidence, knobPx: Number(knob.out.toFixed(1)), snap, seams, shifted3px: { gaps: shifted.gaps, misregistered: shiftedMisregistered }, spoken }, null, 2));
   } catch (error) {
     await page.screenshot({ path: path.join(evidence, "failure.png") });
     console.error(evidence);

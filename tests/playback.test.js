@@ -293,6 +293,33 @@ test("a canceled recording failure cannot speak after another name or screen-tim
   assert.equal(app.run("fallbacks.length"), 0);
 });
 
+test("a finished puzzle speaks its animal's name once the chime has faded", async () => {
+  const animals = require("../animals.json");
+  for (const animal of animals) {
+    const audio = `audio/${animal.name.toLowerCase().replace(/\s+/g, "-")}.mp3`;
+    assert.ok(fs.statSync(require("node:path").join(__dirname, "..", audio)).size > 0, `${animal.name} has a recording`);
+  }
+  const app = setup({ apiReady: false });
+  const finish = (animal) => app.run(`puzzleCompleting = false; currentPuzzleAnimal = ${JSON.stringify(animal)}; completePuzzle()`);
+  finish({ name: "Guinea Pig", image: "images/guinea-pig.svg" });
+  app.tick(699);
+  assert.equal(app.clips.length, 0, "the chime plays alone first");
+  app.tick(1);
+  assert.equal(app.clips.at(-1).src, "audio/guinea-pig.mp3");
+  assert.equal(app.clips.at(-1).plays, 1);
+
+  // Leaving the puzzle, a screen-time lock, or another name cancels it.
+  for (const stop of ["stopSpeech()", "stopPlaybackForLimit()", 'speak("Horse")']) {
+    const before = app.clips.reduce((count, clip) => count + clip.plays, 0);
+    finish({ name: "Lion", image: "images/lion.svg" });
+    app.tick(300);
+    app.run(stop);
+    app.tick(1000);
+    const lion = app.clips.find((clip) => clip.src === "audio/lion.mp3");
+    assert.equal(lion?.plays ?? 0, 0, `${stop} cancels the name`);
+    assert.equal(app.clips.reduce((count, clip) => count + clip.plays, 0), before + (stop.startsWith("speak") ? 1 : 0));
+  }
+});
 
 test("foods start with Tomato and Potato and only speak their names", async () => {
   const app = setup({ apiReady: false });
