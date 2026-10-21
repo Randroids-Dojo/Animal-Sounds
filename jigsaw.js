@@ -96,6 +96,31 @@ const Jigsaw = (() => {
     return { x: column * SIZE - PAD, y: row * SIZE - PAD, size: SIZE + 2 * PAD };
   }
 
-  return { SIZE, PAD, createCuts, piecePath, pieceBox };
+  // Sizes the board and the tray of loose pieces, in px, for the area below
+  // the puzzle heading. The board spans the width less a small margin. It
+  // shrinks only when the tray below it could not otherwise hold every piece
+  // at minPiece or larger. Tray pieces are never larger than seated ones, and
+  // the tray stays clear of the grip band so every piece can be picked up.
+  function fitLayout({ width, height, grid, margin, band, frame, gap, padding, minPiece }) {
+    const count = grid * grid;
+    const span = (SIZE + 2 * PAD) / SIZE;
+    const trayWidth = width - 2 * band;
+    let fit = null;
+    for (let board = Math.floor(width - 2 * margin); board >= 2 * frame + grid; board -= 1) {
+      const seated = (board - 2 * frame) / grid * span;
+      fit = null;
+      for (let columns = 1; columns <= count; columns += 1) {
+        const rows = Math.ceil(count / columns);
+        const piece = Math.floor(Math.min(seated,
+          (trayWidth - 2 * padding - (columns - 1) * gap) / columns,
+          (height - board - 2 * padding - (rows - 1) * gap) / rows));
+        if (!fit || piece > fit.piece) fit = { board, piece, columns, rows };
+      }
+      if (fit.piece >= Math.min(minPiece, seated)) break;
+    }
+    return fit;
+  }
+
+  return { SIZE, PAD, createCuts, piecePath, pieceBox, fitLayout };
 })();
 if (typeof module !== "undefined") module.exports = Jigsaw;

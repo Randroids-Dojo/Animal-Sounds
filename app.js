@@ -24,6 +24,12 @@ const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
 const PUZZLE_SNAP_MS = 170;
 // The completion chime has faded by then, and "You did it!" is showing.
 const PUZZLE_NAME_DELAY_MS = 700;
+// Picking up and putting down a loose piece, which lies smaller in the tray.
+const PUZZLE_RESIZE_MS = 140;
+// Space between the board and the screen's sides.
+const PUZZLE_MARGIN = 8;
+// The smallest loose piece the board gives up width for; a toddler's fingertip.
+const PUZZLE_MIN_TRAY_PIECE = 48;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
@@ -342,6 +348,8 @@ async function init() {
   renderAlphabet(await alphabetResponse.json());
   renderLessons();
   showPage("animals");
+  // The header's height, which the puzzle layout uses, settles with the font.
+  document.fonts?.ready.then(positionPages);
   // A piece's box is its cell plus room for knobs on every side.
   puzzleScreen.style.setProperty("--piece-span", String((Jigsaw.SIZE + 2 * Jigsaw.PAD) / Jigsaw.SIZE));
   newPuzzle();
@@ -625,7 +633,7 @@ function placePuzzlePiece(piece, slot, from) {
   piece.disabled = true;
   piece.classList.add("placed");
   piece.setAttribute("aria-label", "Piece in the right place");
-  if (from && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (from && !reducedMotion()) {
     const to = puzzleRect(piece);
     piece.animate([
       { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(1.06)` },
@@ -637,25 +645,46 @@ function placePuzzlePiece(piece, slot, from) {
   if (puzzlePlaced === PUZZLE_PIECE_COUNT) completePuzzle();
 }
 
-function leavePuzzlePiece(piece, event, offsetX, offsetY) {
+function reducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false;
+}
+
+// A seated piece's box, which is also the size a piece is carried at.
+function seatedPieceSize() {
+  const cell = puzzleRect(puzzleBoard.querySelector(".puzzle-slot")).width;
+  return cell * (Jigsaw.SIZE + 2 * Jigsaw.PAD) / Jigsaw.SIZE;
+}
+
+// A loose piece goes back to its resting size with the same point of it under
+// the finger, and shrinks there unless it is about to shake on a wrong spot.
+function leavePuzzlePiece(piece, event, drag, animate) {
+  const { offsetX, offsetY, size, rest } = drag;
   const screenRect = puzzleRect(puzzleScreen);
-  const pieceRect = puzzleRect(piece);
   const point = puzzlePoint(event.clientX, event.clientY);
+  const grabX = offsetX * rest / size;
+  const grabY = offsetY * rest / size;
   // Keep loose pieces fully clear of the grip band so they stay grabbable.
   const edge = safeEdge();
   const minLeft = Math.max(0, edge - screenRect.left);
   const minTop = Math.max(0, edge - screenRect.top);
-  const maxLeft = Math.min(screenRect.width, playViewport.width - edge - screenRect.left) - pieceRect.width;
-  const maxTop = Math.min(screenRect.height, playViewport.height - edge - screenRect.top) - pieceRect.height;
-  const left = Math.min(Math.max(minLeft, point.x - offsetX - screenRect.left), maxLeft);
-  const top = Math.min(Math.max(minTop, point.y - offsetY - screenRect.top), maxTop);
+  const maxLeft = Math.min(screenRect.width, playViewport.width - edge - screenRect.left) - rest;
+  const maxTop = Math.min(screenRect.height, playViewport.height - edge - screenRect.top) - rest;
+  const left = Math.min(Math.max(minLeft, point.x - grabX - screenRect.left), maxLeft);
+  const top = Math.min(Math.max(minTop, point.y - grabY - screenRect.top), maxTop);
   resetDraggedPiece(piece);
   piece.classList.add("dropped");
   piece.style.left = `${left}px`;
   piece.style.top = `${top}px`;
-  piece.style.width = `${pieceRect.width}px`;
-  piece.style.height = `${pieceRect.height}px`;
+  piece.style.width = `${rest}px`;
+  piece.style.height = `${rest}px`;
   puzzleScreen.append(piece);
+  if (animate && rest !== size && !reducedMotion()) {
+    const transformOrigin = `${grabX}px ${grabY}px`;
+    piece.animate([
+      { transformOrigin, transform: `scale(${size / rest})` },
+      { transformOrigin, transform: "none" },
+    ], { duration: PUZZLE_RESIZE_MS, easing: "ease-out" });
+  }
 }
 
 function movePuzzlePiece(event) {
@@ -705,7 +734,7 @@ function endPuzzleDrag(event) {
   if (slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
     placePuzzlePiece(piece, slot, released);
   } else if (event.type === "pointerup") {
-    leavePuzzlePiece(piece, event, offsetX, offsetY);
+    leavePuzzlePiece(piece, event, drag, !slot);
     if (slot) showPuzzleMismatch(piece);
   } else {
     resetDraggedPiece(piece);
@@ -722,25 +751,37 @@ function claimPuzzleDrag(candidate, event) {
   puzzleDragCandidates.forEach((other, pointerId) => {
     if (other.piece === piece) puzzleDragCandidates.delete(pointerId);
   });
+  // The piece is carried at its real size, growing around the finger so the
+  // same point of it stays under the fingertip.
   const rect = candidate.rect;
+  const size = seatedPieceSize();
+  const grow = size / rect.width;
+  const start = puzzlePoint(candidate.startX, candidate.startY);
+  const offsetX = (start.x - rect.left) * grow;
+  const offsetY = (start.y - rect.top) * grow;
   const ghost = piece.cloneNode(true);
   ghost.className = "puzzle-piece dragging";
   ghost.setAttribute("aria-hidden", "true");
   ghost.style.cssText = piece.style.cssText;
   ghost.style.removeProperty("left");
   ghost.style.removeProperty("top");
-  ghost.style.width = `${rect.width}px`;
-  ghost.style.height = `${rect.height}px`;
+  ghost.style.width = `${size}px`;
+  ghost.style.height = `${size}px`;
+  ghost.style.transformOrigin = `${offsetX}px ${offsetY}px`;
   document.body.append(ghost);
-  const start = puzzlePoint(candidate.startX, candidate.startY);
+  if (grow !== 1 && !reducedMotion()) {
+    ghost.animate([{ transform: `scale(${1 / grow})` }, { transform: "scale(1.06)" }],
+      { duration: PUZZLE_RESIZE_MS, easing: "ease-out" });
+  }
   puzzleDrags.set(event.pointerId, {
     piece,
     ghost,
     startX: candidate.startX,
     startY: candidate.startY,
-    offsetX: start.x - rect.left,
-    offsetY: start.y - rect.top,
-    size: rect.width,
+    offsetX,
+    offsetY,
+    size,
+    rest: rect.width,
     moved: event.pointerType === "touch",
   });
   piece.setPointerCapture(event.pointerId);
@@ -894,10 +935,36 @@ function positionPages() {
   document.body.dataset.portraitRotation = String(rotation);
   document.body.style.setProperty("--play-width", `${width}px`);
   document.body.style.setProperty("--play-height", `${height}px`);
-  const headerHeight = document.querySelector(".topbar").offsetHeight;
-  document.body.style.setProperty("--header-height", `${headerHeight}px`);
+  layoutPuzzle(document.querySelector(".topbar").offsetHeight);
   const offset = -width * ({ animals: 0, puzzle: 1, dinosaurs: 2, foods: 3, alphabet: 4, lessons: 5 }[document.body.dataset.page] || 0);
   pages.style.transform = `translateX(${offset}px)`;
+}
+
+// The board spans the portrait play surface less a small margin, and the tray
+// of loose pieces takes the height that is left above the bottom grip band.
+// Spacing comes from the stylesheet, so this follows any change there.
+function layoutPuzzle(headerHeight) {
+  const frame = parseFloat(getComputedStyle(puzzleBoard).borderLeftWidth) || 0;
+  const tray = getComputedStyle(puzzleTray);
+  const boardTop = headerHeight + puzzleBoard.offsetTop;
+  const between = puzzleTray.offsetTop - puzzleBoard.offsetTop - puzzleBoard.offsetHeight;
+  const fit = Jigsaw.fitLayout({
+    width: playViewport.width,
+    height: playViewport.height - safeEdge() - boardTop - between,
+    grid: PUZZLE_GRID_SIZE,
+    margin: PUZZLE_MARGIN,
+    band: safeEdge(),
+    frame,
+    gap: parseFloat(tray.columnGap) || 0,
+    padding: parseFloat(tray.paddingLeft) || 0,
+    minPiece: PUZZLE_MIN_TRAY_PIECE,
+  });
+  // Seated pieces reach about 1.5 px past their cuts, under their neighbors.
+  const cell = (fit.board - 2 * frame) / PUZZLE_GRID_SIZE;
+  puzzleScreen.style.setProperty("--cut-bleed", String(3 * Jigsaw.SIZE / cell));
+  puzzleScreen.style.setProperty("--board-size", `${fit.board}px`);
+  puzzleScreen.style.setProperty("--tray-piece", `${fit.piece}px`);
+  puzzleScreen.style.setProperty("--tray-columns", String(fit.columns));
 }
 
 // Pointer events and hit testing use the physical viewport. Drag ghosts and

@@ -39,12 +39,20 @@ The videos come from this YouTube playlist:
   SVG illustrations in `images/alphabet/`; phrase recordings are in `audio/alphabet/`.
 - Tap the large **Puzzle** tab in the header to open **Animal Puzzle**; tap the
   large **Sounds** tab to return. Swipe navigation is deliberately disabled so
-  dragging a puzzle piece cannot accidentally change pages.
+  dragging a puzzle piece cannot accidentally change pages. When six labeled
+  tabs do not fit in one row, as on a phone, the tabs show their pictures only
+  (the labels remain for screen readers). The title and **Today** timer sit in
+  the top grip band, where they take no room from the pages.
   Each round cuts an animal picture, on a sky-and-meadow backdrop, into a
   3×3 jigsaw. Every inner cut has one interlocking knob, the outer edges are
   flat, and the cuts change every round (`jigsaw.js`). The board shows a faint
-  copy of the picture with each piece's dashed outline; the mixed-up pieces sit
-  below it. Pieces never rotate, so each shape fits only its own spot. A piece
+  copy of the picture with each piece's dashed outline, and spans the screen
+  less an 8 px margin. The mixed-up pieces lie in a tray below it, smaller than
+  on the board, sized by `Jigsaw.fitLayout()` to fill the height that is left.
+  The board gives up width only if tray pieces would otherwise drop below
+  48 px. A piece grows to its real size around the finger when picked up and
+  goes back to its tray size wherever it is put down. Pieces never rotate, so
+  each shape fits only its own spot. A piece
   seats where its own center is released, not where the finger is, so it can
   be carried by a knob. It slides the last bit into place with a soft click,
   and seated neighbors join into one seamless picture. Only a piece's shape,
@@ -77,7 +85,9 @@ The videos come from this YouTube playlist:
   in `style.css`). Touches that start there do nothing: no taps, puzzle drags,
   page swipes, or waking the dimmed screen. Page content is inset to stay clear
   of it, scrolling tiles pass beneath it, loose puzzle pieces are kept out of
-  it, and the video's hold-to-close button sits inside it. A hand resting in the
+  it, and the video's hold-to-close button sits inside it. The puzzle board may
+  reach under it, because the board takes no touches and pieces seat by their
+  own center. A hand resting in the
   band does not stop the other hand from tapping or scrolling.
 - Playback uses the official YouTube IFrame API. An invisible "tap shield"
   covers the video so little fingers can't pause it, open related videos, or
@@ -266,11 +276,17 @@ gesture works normally.
 Run `node tests/browser-jigsaw.cjs` with the same setup to check that only a
 piece's shape can be grabbed, that a piece carried by a knob seats by its
 center and slides home, and that a finished puzzle shows no backdrop through
-its cuts. The gap check first proves it can see a piece moved 3 px. It also
+its cuts. The gap check first proves it can see a piece moved 6 px. It also
 logs every recording's play, pause and end to check that the animal's name
-plays once after the chime, in full, with no browser-speech fallback.
+plays once after the chime, in full, with no browser-speech fallback. Set
+`VIEWPORT=412x800` to run it at phone size.
+Run `node tests/browser-puzzle-layout.cjs` with the same setup to check the
+puzzle on three phone sizes, a sideways phone, and the tablet: one row of tabs,
+a board spanning the screen less 8 px, tray pieces clear of the grip band, and
+pieces that grow when picked up and shrink back where they are put down.
 `node --test tests/*.test.js` includes the cut geometry: shared cuts, flat
-borders, knob size, and that every knob's head is wider than its neck.
+borders, knob size, and that every knob's head is wider than its neck. It also
+sweeps the layout solver across screen sizes.
 Run `node tests/browser-multitouch.cjs` with the same setup to drag two pieces
 at once with real touch input in portrait and landscape, lift one finger while
 the other keeps dragging, and measure the wrong-slot shake and glow frame by

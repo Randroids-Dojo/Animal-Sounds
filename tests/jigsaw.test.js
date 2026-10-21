@@ -161,3 +161,60 @@ test("each round can cut the same picture differently", () => {
   const paths = new Set(rounds(10).map((cuts) => Jigsaw.piecePath(cuts, 1, 1)));
   assert.equal(paths.size, 10);
 });
+
+const LAYOUT = { grid: GRID, margin: 8, band: 48, frame: 7, gap: 6, padding: 8, minPiece: 48 };
+const SPAN = (Jigsaw.SIZE + 2 * Jigsaw.PAD) / Jigsaw.SIZE;
+
+function trayHeight({ piece, rows }) {
+  return rows * piece + (rows - 1) * LAYOUT.gap + 2 * LAYOUT.padding;
+}
+
+function trayWidth({ piece, columns }) {
+  return columns * piece + (columns - 1) * LAYOUT.gap + 2 * LAYOUT.padding;
+}
+
+test("on a phone the board spans the screen less a small margin", () => {
+  // A 412 px wide phone in Chrome, below a one-row header and the title.
+  const fit = Jigsaw.fitLayout({ ...LAYOUT, width: 412, height: 560 });
+  assert.equal(fit.board, 412 - 2 * LAYOUT.margin);
+  assert.ok(fit.piece >= LAYOUT.minPiece, `tray pieces ${fit.piece}px`);
+  assert.equal(fit.rows * fit.columns >= GRID * GRID, true);
+  assert.ok(trayWidth(fit) <= 412 - 2 * LAYOUT.band, "the tray stays clear of the grip band");
+  assert.ok(fit.board + trayHeight(fit) <= 560);
+});
+
+test("the board gives up width only to keep tray pieces big enough to grab", () => {
+  const roomy = Jigsaw.fitLayout({ ...LAYOUT, width: 412, height: 560 });
+  const short = Jigsaw.fitLayout({ ...LAYOUT, width: 412, height: 470 });
+  assert.ok(short.board < roomy.board);
+  assert.ok(short.piece >= LAYOUT.minPiece);
+  // One more pixel of board would push the tray below its smallest pieces.
+  const wider = Jigsaw.fitLayout({ ...LAYOUT, width: short.board + 1 + 2 * LAYOUT.margin, height: 470 });
+  assert.ok(wider.board <= short.board + 1);
+});
+
+test("tray pieces are never larger than the pieces they become on the board", () => {
+  const fit = Jigsaw.fitLayout({ ...LAYOUT, width: 600, height: 6000 });
+  assert.equal(fit.board, 600 - 2 * LAYOUT.margin);
+  assert.equal(fit.piece, Math.floor((fit.board - 2 * LAYOUT.frame) / GRID * SPAN));
+});
+
+test("every screen size gets a layout that fits", () => {
+  for (let width = 320; width <= 1100; width += 37) {
+    for (let height = 420; height <= 1700; height += 53) {
+      const fit = Jigsaw.fitLayout({ ...LAYOUT, width, height });
+      const seated = (fit.board - 2 * LAYOUT.frame) / GRID * SPAN;
+      const label = `${width}x${height} ${JSON.stringify(fit)}`;
+      assert.ok(fit.board <= width - 2 * LAYOUT.margin, label);
+      assert.ok(fit.rows * fit.columns >= GRID * GRID, label);
+      assert.ok(fit.piece <= seated, label);
+      assert.ok(trayWidth(fit) <= width - 2 * LAYOUT.band, label);
+      if (fit.piece >= LAYOUT.minPiece) assert.ok(fit.board + trayHeight(fit) <= height, label);
+      // The board is full width whenever the tray still holds big enough pieces.
+      if (fit.board < width - 2 * LAYOUT.margin) {
+        const full = Jigsaw.fitLayout({ ...LAYOUT, width, height: height + 10000 });
+        assert.ok(full.board > fit.board, label);
+      }
+    }
+  }
+});

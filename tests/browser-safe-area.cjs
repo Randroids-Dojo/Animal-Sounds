@@ -92,7 +92,9 @@ const PAGES = ["animals", "dinosaurs", "foods", "alphabet", "lessons", "puzzle"]
           }
         }
         const screen = document.querySelector(".app-screen:not([inert])");
-        const controls = [...document.querySelectorAll("#page-tabs button"), ...screen.querySelectorAll("button, summary, .puzzle-slot")];
+        // The puzzle board may reach under the band: it never takes a touch,
+        // and pieces seat by their own center. Tray pieces must stay clear.
+        const controls = [...document.querySelectorAll("#page-tabs button"), ...screen.querySelectorAll("button, summary")];
         const intruders = controls.map((element) => [element, element.getBoundingClientRect()])
           .filter(([, rect]) => rect.width && (rect.left < edge || rect.right > innerWidth - edge || rect.top + scrollY < edge))
           .map(([element]) => element.className || element.tagName);
@@ -176,7 +178,10 @@ const PAGES = ["animals", "dinosaurs", "foods", "alphabet", "lessons", "puzzle"]
         const loose = page.locator("#puzzle-tray .puzzle-piece").first();
         const looseIndex = await loose.getAttribute("data-index");
         await swipe(await center(loose), corner, 4);
-        const rect = await page.locator(`.puzzle-piece.dropped[data-index="${looseIndex}"]`).boundingBox();
+        const dropped = page.locator(`.puzzle-piece.dropped[data-index="${looseIndex}"]`);
+        // Wait out the shrink back to its resting size.
+        await dropped.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+        const rect = await dropped.boundingBox();
         assert.ok(rect.x >= S - 0.5 && rect.y >= S - 0.5 && rect.x + rect.width <= width - S + 0.5 && rect.y + rect.height <= height - S + 0.5,
           `${orientation}: a piece released in the band rests clear of it ${JSON.stringify(rect)}`);
       }

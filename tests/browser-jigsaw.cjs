@@ -4,7 +4,7 @@
 // jigsaw itself with real touch input: only a piece's shape can be grabbed, a
 // piece lands where its own center is (even when carried by a knob), it slides
 // into place, and a finished puzzle is one seamless picture. The seam check
-// compares pixels and first proves it can see a 3 px misplacement. Every
+// compares pixels and first proves it can see a piece moved 6 px. Every
 // recording's play, pause and end is logged, so the animal's name is checked
 // for being spoken after the chime, to the end, before the next round.
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
@@ -15,7 +15,9 @@ const path = require("node:path");
 
 (async () => {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
-  const context = await browser.newContext({ viewport: { width: 800, height: 1340 }, hasTouch: true });
+  // VIEWPORT=412x800 runs the same checks at phone size.
+  const [width, height] = (process.env.VIEWPORT || "800x1340").split("x").map(Number);
+  const context = await browser.newContext({ viewport: { width, height }, hasTouch: true });
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
   const errors = [];
@@ -143,6 +145,7 @@ const path = require("node:path");
       const grip = { x: best.x - direction.x * 4, y: best.y - direction.y * 4 };
       return {
         ...best,
+        span,
         direction,
         grip,
         gripOwner: owner(grip.x, grip.y),
@@ -153,19 +156,25 @@ const path = require("node:path");
     assert.equal(knob.gripOwner, knob.index, "a knob's tip can be grabbed");
     assert.notEqual(knob.cornerOwner, knob.index, "a piece's empty box corner cannot be grabbed");
 
-    // Carry the piece by its knob. Its center lands a fifth of a cell from its
-    // spot, toward the knob, so the finger itself ends up outside that spot.
+    // Carry the piece by its knob. It grows to its seated size around the
+    // finger. Its center lands a fifth of a cell from its spot, toward the
+    // knob, so the finger itself ends up outside that spot.
     const home = await center(slotFor(knob.index));
-    const landing = { x: home.x + knob.direction.x * 0.2 * knob.cell, y: home.y + knob.direction.y * 0.2 * knob.cell };
-    const release = { x: knob.grip.x + landing.x - knob.cx, y: knob.grip.y + landing.y - knob.cy };
     const homeBox = await slotFor(knob.index).boundingBox();
+    const grow = homeBox.width / knob.cell;
+    const landing = { x: home.x + knob.direction.x * 0.2 * homeBox.width, y: home.y + knob.direction.y * 0.2 * homeBox.width };
+    const release = { x: landing.x + (knob.grip.x - knob.cx) * grow, y: landing.y + (knob.grip.y - knob.cy) * grow };
     assert.ok(release.x < homeBox.x || release.x > homeBox.x + homeBox.width
       || release.y < homeBox.y || release.y > homeBox.y + homeBox.height, "the finger lets go outside the piece's spot");
     await touch("touchStart", [{ ...knob.grip, id: 1 }]);
     for (let step = 1; step <= 8; step += 1) await touch("touchMove", [{ ...between(knob.grip, release, step / 8), id: 1 }]);
     await settle();
-    const ghost = await center(page.locator(".puzzle-piece.dragging"));
-    assert.ok(Math.hypot(ghost.x - landing.x, ghost.y - landing.y) < 1, "the carried piece keeps its grip offset");
+    const carried = await page.locator(".puzzle-piece.dragging").evaluate((ghost) => {
+      const size = parseFloat(ghost.style.width);
+      return { size, x: parseFloat(ghost.style.left) + size / 2, y: parseFloat(ghost.style.top) + size / 2 };
+    });
+    assert.ok(Math.abs(carried.size - homeBox.width * knob.span) < 1, `the piece is carried at its seated size: ${carried.size}px`);
+    assert.ok(Math.hypot(carried.x - landing.x, carried.y - landing.y) < 1, "the carried piece keeps its grip point under the finger");
     await page.screenshot({ path: path.join(evidence, "carried-by-knob.png") });
     // Sample the seating motion every frame from the moment the finger lifts.
     await page.evaluate((index) => {
@@ -241,21 +250,29 @@ const path = require("node:path");
     const reference = await boardPixels();
     await page.evaluate(() => document.getElementById("reference-picture").remove());
     // Each piece is pixel-snapped on its own, so outlines may jog by under a
-    // pixel at a cut; only those few pixels may differ from the whole picture.
+    // pixel at a cut; only pixels along the cuts may differ from the picture.
     const misregistered = differingPixels(assembled.magenta, reference, 100);
-    const seams = { gaps: assembled.gaps, misregisteredPct: Number((100 * misregistered / (reference.width * reference.height)).toFixed(3)) };
+    // Length of the inner cuts on screen: every piece outline, less the
+    // picture's border, counts each cut twice.
+    const cutPx = await page.evaluate(() => {
+      const guide = document.querySelector(".puzzle-guide");
+      const scale = guide.getBoundingClientRect().width / guide.viewBox.baseVal.width;
+      const outlines = [...guide.querySelectorAll(".slot-edge")].reduce((sum, edge) => sum + edge.getTotalLength(), 0);
+      return (outlines - 4 * guide.viewBox.baseVal.width) / 2 * scale;
+    });
+    const seams = { gaps: assembled.gaps, misregisteredPerCutPx: Number((misregistered / cutPx).toFixed(3)) };
 
-    // Prove both checks see a misplaced piece before trusting them. Pieces
-    // overlap their neighbors by about 1.5 px, so shift one farther.
+    // Prove both checks see a misplaced piece before trusting them. Neighbors
+    // overlap by about 3 px, so shift one twice that.
     await page.evaluate(() => {
-      document.querySelector('.puzzle-slot[data-index="4"] .puzzle-piece').style.translate = "3px 0";
+      document.querySelector('.puzzle-slot[data-index="4"] .puzzle-piece').style.translate = "6px 0";
     });
     const shifted = await seeThrough();
     const shiftedMisregistered = differingPixels(shifted.magenta, reference, 100);
-    assert.ok(shifted.gaps > 100, `the gap check sees a 3 px misplacement: ${shifted.gaps} px`);
+    assert.ok(shifted.gaps > 100, `the gap check sees a 6 px misplacement: ${shifted.gaps} px`);
     assert.ok(shiftedMisregistered > 4 * misregistered, `the picture check sees it too: ${shiftedMisregistered} vs ${misregistered} px`);
     assert.equal(seams.gaps, 0, `seated pieces leave no gaps: ${seams.gaps} px show the backdrop`);
-    assert.ok(seams.misregisteredPct < 0.2, `seated pieces line up with the picture: ${seams.misregisteredPct}% differ`);
+    assert.ok(seams.misregisteredPerCutPx < 0.5, `seated pieces line up with the picture: ${seams.misregisteredPerCutPx} px differ per px of cut`);
 
     // The animal's own recording plays once the chime has faded, in full,
     // and well before the next round would start 4.2 s after completion.
@@ -283,7 +300,7 @@ const path = require("node:path");
     assert.ok(spoken.endedMs < 4200 - 1000, `the name ends well before the next round: ${spoken.endedMs} ms`);
     assert.equal(spoken.otherSounds, 0, "nothing else is spoken");
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ passed: true, evidence, knobPx: Number(knob.out.toFixed(1)), snap, seams, shifted3px: { gaps: shifted.gaps, misregistered: shiftedMisregistered }, spoken }, null, 2));
+    console.log(JSON.stringify({ passed: true, evidence, knobPx: Number(knob.out.toFixed(1)), snap, seams, shifted6px: { gaps: shifted.gaps, misregistered: shiftedMisregistered }, spoken }, null, 2));
   } catch (error) {
     await page.screenshot({ path: path.join(evidence, "failure.png") });
     console.error(evidence);

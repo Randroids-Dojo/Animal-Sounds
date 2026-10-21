@@ -59,12 +59,33 @@ body::after {
   padding: calc(var(--safe-edge) + 2px) var(--safe-edge) 2px;
 }
 
+/* The title and today's time sit in the top grip band, so they take no room
+   from the pages. They ignore touches, which the band swallows anyway. */
+.topbar h1,
+#daily-time {
+  position: fixed;
+  top: calc(var(--safe-edge) / 2);
+  z-index: 10;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
 .topbar h1 {
+  left: var(--safe-edge);
   margin: 0;
   font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   opacity: 0.55;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---------- Swipeable play pages ---------- */
@@ -140,6 +161,7 @@ body[data-page="puzzle"] #pages {
 body[data-page="puzzle"] #safe-area > div { background: none; }
 
 #daily-time {
+  right: var(--safe-edge);
   display: flex;
   align-items: baseline;
   gap: 5px;
@@ -164,7 +186,7 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   display: flex;
   justify-content: center;
   gap: 6px;
-  margin-top: 8px;
+  container-type: inline-size;
 }
 
 #page-tabs button {
@@ -183,6 +205,24 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
 #page-tabs button[aria-pressed="true"] {
   border-color: var(--ink);
   background: var(--cream);
+}
+
+/* Too narrow for six labels in one row, as on a phone: show the pictures
+   only. The labels stay for screen readers. */
+@container (max-width: 640px) {
+  #page-tabs button {
+    padding: 6px 2px;
+    font-size: 1.6rem;
+  }
+
+  #page-tabs .tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
 /* ---------- Tile grid ---------- */
@@ -266,64 +306,36 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 4px var(--safe-edge) var(--safe-edge);
+  padding: 4px 0 var(--safe-edge);
   background: linear-gradient(155deg, #E3DCFA 0%, var(--sky) 48%, #C9EDD3 100%);
   touch-action: none;
-  /* A piece's box over its cell's side; app.js sets it from jigsaw.js. */
+  /* app.js sets these: a piece's box over its cell's side (from jigsaw.js),
+     and the board and tray sizes that Jigsaw.fitLayout() picks. */
   --piece-span: 1.56;
-  /* One cell of the picture. Three piece boxes must fit across the tray, and
-     the board's three cells plus the tray's three rows must fit below the
-     header together with the headings. */
-  --puzzle-cell: min(
-    140px,
-    calc((var(--play-width) - 2 * var(--safe-edge) - 32px) / (3 * var(--piece-span))),
-    calc((var(--play-height) - var(--header-height, 100px) - var(--safe-edge) - 200px) / (3 + 3 * var(--piece-span)))
-  );
-  --puzzle-width: calc(3 * var(--puzzle-cell));
-  --piece-size: calc(var(--puzzle-cell) * var(--piece-span));
+  --board-size: 300px;
+  --tray-piece: 72px;
+  --tray-columns: 3;
 }
 
 .puzzle-heading {
   text-align: center;
 }
 
-.puzzle-heading p {
-  margin: 3px 0 0;
-  color: #635A91;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .puzzle-heading h2 {
-  margin: 2px 0 0;
+  margin: 0 0 6px;
   font-size: clamp(1.45rem, calc(var(--play-width) * 0.05), 2.2rem);
-}
-
-.puzzle-heading span {
-  display: block;
-  margin: 2px 0 9px;
-  font-size: 0.9rem;
-  opacity: 0.62;
-}
-
-.puzzle-section > h3 {
-  width: fit-content;
-  margin: 10px auto 5px;
-  color: #635A91;
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  line-height: 1.2;
 }
 
 /* The board is the picture's frame: a faint copy of the picture with each
-   piece's outline, and one slot per cell for the pieces to seat in. */
+   piece's outline, and one slot per cell for the pieces to seat in. It spans
+   the screen less a small margin. It takes no touches, so it may reach under
+   the grip band. */
 #puzzle-board {
   position: relative;
   display: grid;
   grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  width: calc(var(--puzzle-width) + 14px);
+  width: var(--board-size);
   aspect-ratio: 1;
   margin-inline: auto;
   border: 7px solid #FFF6DA;
@@ -357,10 +369,11 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   min-width: 0;
 }
 
+/* The stroke lets seated pieces overlap; app.js sizes it to about 3 px. */
 .cut-mask {
   fill: #FFF;
   stroke: #FFF;
-  stroke-width: 2.5;
+  stroke-width: var(--cut-bleed, 2.5);
   stroke-linejoin: round;
 }
 
@@ -368,14 +381,18 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   position: absolute;
 }
 
+/* Loose pieces lie here smaller than they sit on the board; a piece grows
+   to its real size while it is carried. */
 #puzzle-tray {
-  display: grid;
-  grid-template-columns: repeat(3, var(--piece-size));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
   gap: 6px;
-  width: fit-content;
-  margin-inline: auto;
-  padding: 10px;
-  border-radius: 24px;
+  width: calc(var(--tray-columns) * (var(--tray-piece) + 6px) - 6px + 16px);
+  margin: 10px auto 0;
+  padding: 8px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.65);
 }
 
@@ -384,7 +401,7 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
 .puzzle-piece {
   position: relative;
   display: block;
-  width: var(--piece-size);
+  width: var(--tray-piece);
   aspect-ratio: 1;
   margin: 0;
   padding: 0;
@@ -397,6 +414,10 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   filter: drop-shadow(0 3px 0 rgba(59, 53, 96, 0.2));
 }
 
+#puzzle-tray .puzzle-piece {
+  flex: none;
+}
+
 .puzzle-piece svg {
   display: block;
   width: 100%;
@@ -404,11 +425,13 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   overflow: visible;
 }
 
+/* A fingertip's margin around the shape, the same at every piece size. */
 .piece-hit {
   fill: none;
   stroke: none;
-  stroke-width: 20;
+  stroke-width: 16px;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
   pointer-events: all;
 }
 
@@ -789,11 +812,6 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
 .dinosaur-credits { padding: 0 18px 14px; font-size: 0.75rem; }
 .dinosaur-credits a { color: inherit; }
 .dinosaur-credits li { margin-block: 8px; }
-
-@media (max-width: 500px) {
-  #page-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  #page-tabs button { max-width: none; }
-}
 
 #alphabet-grid .tile-name { font-size: clamp(0.95rem, 2.4vw, 1.25rem); line-height: 1.2; }
 #alphabet-grid .tile img { height: 65%; object-fit: contain; }

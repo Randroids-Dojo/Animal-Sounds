@@ -29,12 +29,12 @@
       <output id="daily-time-value">0:00:00</output>
     </div>
     <nav id="page-tabs" aria-label="Play pages">
-      <button type="button" data-page-target="animals" aria-pressed="true">🐾 Sounds</button>
-      <button type="button" data-page-target="dinosaurs" aria-pressed="false">🦕 Dinosaurs</button>
-      <button type="button" data-page-target="foods" aria-pressed="false">🍅 Foods</button>
-      <button type="button" data-page-target="alphabet" aria-pressed="false">🔤 Alphabet</button>
-      <button type="button" data-page-target="lessons" aria-pressed="false">🌱 Lessons</button>
-      <button type="button" data-page-target="puzzle" aria-pressed="false">🧩 Puzzle</button>
+      <button type="button" data-page-target="animals" aria-pressed="true">🐾 <span class="tab-label">Sounds</span></button>
+      <button type="button" data-page-target="dinosaurs" aria-pressed="false">🦕 <span class="tab-label">Dinosaurs</span></button>
+      <button type="button" data-page-target="foods" aria-pressed="false">🍅 <span class="tab-label">Foods</span></button>
+      <button type="button" data-page-target="alphabet" aria-pressed="false">🔤 <span class="tab-label">Alphabet</span></button>
+      <button type="button" data-page-target="lessons" aria-pressed="false">🌱 <span class="tab-label">Lessons</span></button>
+      <button type="button" data-page-target="puzzle" aria-pressed="false">🧩 <span class="tab-label">Puzzle</span></button>
     </nav>
   </header>
 
@@ -47,16 +47,14 @@
 
       <section id="puzzle-screen" class="app-screen" aria-label="Animal puzzle">
         <div class="puzzle-heading">
-          <p>Animal puzzle</p>
           <h2 id="puzzle-name">Find the pieces!</h2>
-          <span>Put each piece where it belongs.</span>
         </div>
         <section class="puzzle-section" aria-labelledby="puzzle-slots-label">
-          <h3 id="puzzle-slots-label">Empty spots</h3>
+          <h3 id="puzzle-slots-label" class="visually-hidden">Empty spots</h3>
           <div id="puzzle-board" aria-label="Empty puzzle spots"></div>
         </section>
         <section class="puzzle-section" aria-labelledby="puzzle-pieces-label">
-          <h3 id="puzzle-pieces-label">Mixed-up pieces</h3>
+          <h3 id="puzzle-pieces-label" class="visually-hidden">Mixed-up pieces</h3>
           <div id="puzzle-tray" aria-label="Mixed-up puzzle pieces"></div>
         </section>
         <!-- Shared by every piece, drag ghost, and the board's faint guide.
