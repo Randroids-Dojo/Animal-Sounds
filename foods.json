@@ -32,7 +32,8 @@
   {
     "name": "Grapes",
     "image": "images/foods/grapes.svg",
-    "kind": "food"
+    "kind": "food",
+    "article": "some"
   },
   {
     "name": "Watermelon",
@@ -57,12 +58,14 @@
   {
     "name": "Broccoli",
     "image": "images/foods/broccoli.svg",
-    "kind": "food"
+    "kind": "food",
+    "article": "some"
   },
   {
     "name": "Corn",
     "image": "images/foods/corn.svg",
-    "kind": "food"
+    "kind": "food",
+    "article": "some"
   },
   {
     "name": "Cucumber",
@@ -72,12 +75,14 @@
   {
     "name": "Bread",
     "image": "images/foods/bread.svg",
-    "kind": "food"
+    "kind": "food",
+    "article": "some"
   },
   {
     "name": "Cheese",
     "image": "images/foods/cheese.svg",
-    "kind": "food"
+    "kind": "food",
+    "article": "some"
   },
   {
     "name": "Egg",
@@ -87,7 +92,8 @@
   {
     "name": "Rice",
     "image": "images/foods/rice.svg",
-    "kind": "food"
+    "kind": "food",
+    "article": "some"
   },
   {
     "name": "Pizza",
@@ -97,6 +103,7 @@
   {
     "name": "Pancakes",
     "image": "images/foods/pancakes.svg",
-    "kind": "food"
+    "kind": "food",
+    "article": "some"
   }
 ]

@@ -19,6 +19,7 @@
   <script defer src="alphabet.js"></script>
   <script defer src="lessons.js"></script>
   <script defer src="jigsaw.js"></script>
+  <script defer src="puzzle-deck.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body data-page="animals">
@@ -61,14 +62,80 @@
              app.js fills #puzzle-cuts with this round's piece shapes. -->
         <svg id="puzzle-defs" width="0" height="0" aria-hidden="true" focusable="false">
           <defs>
-            <linearGradient id="puzzle-sky" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+            <!-- One backdrop per kind of picture, each 300 units square (three
+                 cells) plus a margin for the bleed. Corners differ, so corner
+                 pieces have something of their own. -->
+            <linearGradient id="puzzle-sky-animal" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
               <stop offset="0" stop-color="#BFE6F6"/>
               <stop offset="0.7" stop-color="#F2F9F1"/>
             </linearGradient>
-            <!-- 300 units square (three cells), plus a margin for the bleed. -->
-            <g id="puzzle-scene">
-              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky)"/>
+            <g id="puzzle-scene-animal">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-animal)"/>
               <path d="M-10 224 L 0 222 C 70 204 130 200 190 210 S 270 214 300 206 L 310 205 V 310 H -10 Z" fill="#B9E2A8"/>
+            </g>
+            <linearGradient id="puzzle-sky-dinosaur" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FFD7A3"/>
+              <stop offset="0.6" stop-color="#FFF3DE"/>
+            </linearGradient>
+            <g id="puzzle-scene-dinosaur">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-dinosaur)"/>
+              <circle cx="246" cy="52" r="24" fill="#FFE68F"/>
+              <g fill="#ECE3E6">
+                <circle cx="76" cy="76" r="11"/><circle cx="92" cy="64" r="14"/><circle cx="112" cy="58" r="12"/>
+                <circle cx="130" cy="50" r="9"/><circle cx="100" cy="52" r="10"/>
+              </g>
+              <path d="M-10 182 L 52 92 H 92 L 168 182 Z" fill="#C9AFC4"/>
+              <path d="M52 92 H 92 L 84 104 L 75 98 L 66 106 L 58 99 Z" fill="#F08A4B"/>
+              <path d="M-10 182 C 60 170 140 174 200 178 S 280 172 310 176 V 310 H -10 Z" fill="#D3E5A4"/>
+              <path d="M-10 262 C 80 250 200 256 310 246 V 310 H -10 Z" fill="#BCD78E"/>
+              <g fill="#8DBF6A">
+                <ellipse cx="14" cy="270" rx="26" ry="7" transform="rotate(-35 14 270)"/>
+                <ellipse cx="22" cy="282" rx="28" ry="7" transform="rotate(-10 22 282)"/>
+                <ellipse cx="290" cy="268" rx="26" ry="7" transform="rotate(35 290 268)"/>
+                <ellipse cx="282" cy="282" rx="28" ry="7" transform="rotate(10 282 282)"/>
+              </g>
+            </g>
+            <linearGradient id="puzzle-sky-robot" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#C9CFF5"/>
+              <stop offset="0.72" stop-color="#EEF0FF"/>
+            </linearGradient>
+            <g id="puzzle-scene-robot">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-robot)"/>
+              <circle cx="52" cy="58" r="22" fill="#F7C6A3"/>
+              <ellipse cx="52" cy="58" rx="38" ry="9" fill="none" stroke="#E59B7A" stroke-width="5" transform="rotate(-14 52 58)"/>
+              <g fill="#FFFBE0">
+                <path d="M120 30 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3 l8 -3 Z"/>
+                <path d="M262 26 l2.5 6 l6 2.5 l-6 2.5 l-2.5 6 l-2.5 -6 l-6 -2.5 l6 -2.5 Z"/>
+                <path d="M212 96 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 Z"/>
+                <path d="M30 140 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 Z"/>
+                <path d="M282 150 l2.5 6 l6 2.5 l-6 2.5 l-2.5 6 l-2.5 -6 l-6 -2.5 l6 -2.5 Z"/>
+              </g>
+              <path d="M-10 230 C 70 220 150 226 220 222 S 290 218 310 224 V 310 H -10 Z" fill="#D9D9E6"/>
+              <g fill="#C2C2D4">
+                <ellipse cx="44" cy="270" rx="18" ry="5"/>
+                <ellipse cx="186" cy="290" rx="24" ry="6"/>
+                <ellipse cx="262" cy="250" rx="11" ry="3.5"/>
+              </g>
+            </g>
+            <linearGradient id="puzzle-sky-food" x1="0" y1="0" x2="0" y2="180" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#CDEBFA"/>
+              <stop offset="1" stop-color="#FFF7E6"/>
+            </linearGradient>
+            <pattern id="puzzle-gingham" width="30" height="30" patternUnits="userSpaceOnUse">
+              <rect width="30" height="30" fill="#FFFDF8"/>
+              <rect width="15" height="30" fill="#F4B4AE" fill-opacity="0.55"/>
+              <rect width="30" height="15" fill="#F4B4AE" fill-opacity="0.55"/>
+            </pattern>
+            <g id="puzzle-scene-food">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-food)"/>
+              <g fill="#FFFFFF">
+                <circle cx="40" cy="44" r="15"/><circle cx="60" cy="38" r="19"/><circle cx="82" cy="46" r="13"/>
+                <circle cx="236" cy="70" r="12"/><circle cx="254" cy="62" r="16"/><circle cx="272" cy="72" r="11"/>
+              </g>
+              <rect x="-10" y="176" width="320" height="134" fill="url(#puzzle-gingham)"/>
+              <rect x="-10" y="174" width="320" height="5" fill="#E58C84"/>
+              <ellipse cx="150" cy="248" rx="124" ry="32" fill="#FFFFFF" stroke="#DADADA" stroke-width="2"/>
+              <ellipse cx="150" cy="246" rx="94" ry="21" fill="#F4F4F4"/>
             </g>
             <filter id="puzzle-hue" color-interpolation-filters="sRGB">
               <feColorMatrix id="puzzle-hue-rotate" type="hueRotate" values="0"/>

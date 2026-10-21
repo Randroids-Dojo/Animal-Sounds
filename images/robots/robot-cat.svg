@@ -1,0 +1,39 @@
+<svg id="emoji" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+  <g id="color">
+    <path d="M49,55 C59,56 63,49 61,41 C60.5,38.5 65,38 65.6,41 C68,52 61,61 49,60 Z" fill="#8967aa"/>
+    <circle cx="36" cy="7" r="2" fill="#fcea2b"/>
+    <path d="M19,19 L21,5 L31,14 Z" fill="#8967aa"/>
+    <path d="M53,19 L51,5 L41,14 Z" fill="#8967aa"/>
+    <rect x="22" y="37" width="28" height="23" rx="6" fill="#b399c8"/>
+    <rect x="28" y="42" width="16" height="12" rx="3" fill="#fff"/>
+    <path d="M36,51.5 C30,47.5 31,43.5 33.5,43.5 C35,43.5 36,45 36,45 C36,45 37,43.5 38.5,43.5 C41,43.5 42,47.5 36,51.5 Z" fill="#ea5a47"/>
+    <rect x="23" y="57" width="11" height="7" rx="3.5" fill="#8967aa"/>
+    <rect x="38" y="57" width="11" height="7" rx="3.5" fill="#8967aa"/>
+    <rect x="17" y="12" width="38" height="26" rx="9" fill="#b399c8"/>
+    <circle cx="28.5" cy="24" r="5" fill="#fcea2b"/>
+    <circle cx="43.5" cy="24" r="5" fill="#fcea2b"/>
+    <path d="M34,30 H38 L36,32.5 Z" fill="#ea5a47"/>
+  </g>
+  <g id="line" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+    <path d="M49,55 C59,56 63,49 61,41 C60.5,38.5 65,38 65.6,41 C68,52 61,61 49,60"/>
+    <line x1="36" y1="12" x2="36" y2="9"/>
+    <circle cx="36" cy="7" r="2"/>
+    <path d="M19,19 L21,5 L31,14"/>
+    <path d="M53,19 L51,5 L41,14"/>
+    <rect x="22" y="37" width="28" height="23" rx="6"/>
+    <rect x="28" y="42" width="16" height="12" rx="3"/>
+    <path d="M36,51.5 C30,47.5 31,43.5 33.5,43.5 C35,43.5 36,45 36,45 C36,45 37,43.5 38.5,43.5 C41,43.5 42,47.5 36,51.5 Z"/>
+    <rect x="23" y="57" width="11" height="7" rx="3.5"/>
+    <rect x="38" y="57" width="11" height="7" rx="3.5"/>
+    <rect x="17" y="12" width="38" height="26" rx="9"/>
+    <circle cx="28.5" cy="24" r="5"/>
+    <circle cx="43.5" cy="24" r="5"/>
+    <ellipse cx="28.5" cy="24" rx="1.2" ry="3.4" fill="#000" stroke="none"/>
+    <ellipse cx="43.5" cy="24" rx="1.2" ry="3.4" fill="#000" stroke="none"/>
+    <path d="M34,30 H38 L36,32.5 Z"/>
+    <line x1="23" y1="31" x2="11" y2="29"/>
+    <line x1="23" y1="34" x2="11" y2="36"/>
+    <line x1="49" y1="31" x2="61" y2="29"/>
+    <line x1="49" y1="34" x2="61" y2="36"/>
+  </g>
+</svg>

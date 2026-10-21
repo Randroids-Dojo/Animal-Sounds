@@ -1,0 +1,40 @@
+<svg id="emoji" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+  <g id="color">
+    <path d="M22,33 L4,52 L9,54 L23,45 Z" fill="#b1cc33"/>
+    <path d="M22,27 L25,19 L29,27 Z" fill="#5c9e31"/>
+    <path d="M29,27 L32,18 L36,27 Z" fill="#5c9e31"/>
+    <path d="M36,27 L38.5,20 L41,27 Z" fill="#5c9e31"/>
+    <rect x="26" y="49" width="7" height="10" fill="#9b9b9a"/>
+    <rect x="39" y="49" width="7" height="10" fill="#9b9b9a"/>
+    <rect x="23" y="58" width="13" height="5" rx="2" fill="#3f3f3f"/>
+    <rect x="36" y="58" width="13" height="5" rx="2" fill="#3f3f3f"/>
+    <rect x="19" y="27" width="32" height="24" rx="7" fill="#b1cc33"/>
+    <rect x="27" y="33" width="14" height="10" rx="2" fill="#fcea2b"/>
+    <path d="M49,36 H56 V40 H52" fill="#9b9b9a"/>
+    <rect x="41" y="21" width="9" height="9" fill="#b1cc33"/>
+    <rect x="40" y="8" width="26" height="17" rx="4" fill="#b1cc33"/>
+    <path d="M45,21 L47,24 L49,21 L51,24 L53,21 L55,24 L57,21 L59,24 L61,21 Z" fill="#fff"/>
+    <circle cx="49" cy="14" r="2.8" fill="#d22f27"/>
+  </g>
+  <g id="line" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+    <path d="M21,34 L4,52 L9,54 L21,46"/>
+    <path d="M22,27 L25,19 L29,27"/>
+    <path d="M29,27 L32,18 L36,27"/>
+    <path d="M36,27 L38.5,20 L41,27"/>
+    <rect x="26" y="49" width="7" height="10"/>
+    <rect x="39" y="49" width="7" height="10"/>
+    <rect x="23" y="58" width="13" height="5" rx="2"/>
+    <rect x="36" y="58" width="13" height="5" rx="2"/>
+    <rect x="19" y="27" width="32" height="24" rx="7"/>
+    <rect x="27" y="33" width="14" height="10" rx="2"/>
+    <path d="M30,36.5 L34,36.5 L32,40 L38,40"/>
+    <path d="M51,36 H56 V40 H52"/>
+    <path d="M41,25 V30"/>
+    <path d="M50,25 V28"/>
+    <rect x="40" y="8" width="26" height="17" rx="4"/>
+    <path d="M45,21 L47,24 L49,21 L51,24 L53,21 L55,24 L57,21 L59,24 L61,21 Z"/>
+    <line x1="43" y1="21" x2="63" y2="21"/>
+    <circle cx="49" cy="14" r="2.8"/>
+    <circle cx="62" cy="12" r="0.9" fill="#000"/>
+  </g>
+</svg>

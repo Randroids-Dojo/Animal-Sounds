@@ -35,6 +35,8 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
 let dinosaurs = [];
+let foods = [];
+let robots = [];
 
 const grid = document.getElementById("grid");
 const overlay = document.getElementById("overlay");
@@ -96,7 +98,10 @@ function loadScreenTime() {
 let screenTime = loadScreenTime();
 let countingSince = null;
 let lastInteractionAt = Date.now();
-let currentPuzzleAnimal = null;
+let puzzleDeck = null;
+// This round's picture, and the next one, whose image loads in the meantime.
+let currentPuzzle = null;
+let upcomingPuzzle = null;
 let puzzlePlaced = 0;
 // Active drags keyed by pointer ID, so each finger can carry its own piece.
 const puzzleDrags = new Map();
@@ -343,7 +348,10 @@ async function init() {
   dinosaurs = await dinosaurResponse.json();
   renderGrid(dinosaurs, document.getElementById("dinosaur-grid"));
   const foodResponse = await fetch("foods.json");
-  renderGrid(await foodResponse.json(), document.getElementById("food-grid"));
+  foods = await foodResponse.json();
+  renderGrid(foods, document.getElementById("food-grid"));
+  const robotResponse = await fetch("robots.json");
+  robots = await robotResponse.json();
   const alphabetResponse = await fetch("alphabet.json");
   renderAlphabet(await alphabetResponse.json());
   renderLessons();
@@ -352,6 +360,9 @@ async function init() {
   document.fonts?.ready.then(positionPages);
   // A piece's box is its cell plus room for knobs on every side.
   puzzleScreen.style.setProperty("--piece-span", String((Jigsaw.SIZE + 2 * Jigsaw.PAD) / Jigsaw.SIZE));
+  // Some animals have two videos; each still makes one puzzle.
+  const puzzleAnimals = animals.filter((animal, index) => animals.findIndex((other) => other.name === animal.name) === index);
+  puzzleDeck = PuzzleDeck.create({ animal: puzzleAnimals, dinosaur: dinosaurs, food: foods, robot: robots });
   newPuzzle();
   showIdleDim();
   updateScreenTime();
@@ -521,22 +532,30 @@ function svgElement(name, attributes = {}) {
   return element;
 }
 
-// The whole puzzle picture in jigsaw units: the scenery, then the animal.
-function puzzlePicture(animal) {
+// The whole puzzle picture in jigsaw units: its kind's backdrop, then the
+// square picture. Dinosaurs use cutouts made by
+// scripts/build-puzzle-dinosaurs.py instead of their tile artwork.
+function puzzlePicture(item) {
   const size = Jigsaw.SIZE * PUZZLE_GRID_SIZE;
-  const image = svgElement("image", { href: animal.image, width: size, height: size });
-  if (animal.hue) image.setAttribute("filter", "url(#puzzle-hue)");
+  const image = svgElement("image", { href: item.puzzleImage || item.image, width: size, height: size });
+  if (item.hue) image.setAttribute("filter", "url(#puzzle-hue)");
   const picture = svgElement("g");
-  picture.append(svgElement("use", { href: "#puzzle-scene" }), image);
+  picture.append(svgElement("use", { href: `#puzzle-scene-${item.kind || "animal"}` }), image);
   return picture;
+}
+
+// "Build a Horse!", "Build an Owl!", "Build some Rice!"
+function puzzleTitle(item) {
+  const article = item.article || (/^[aeiou]/i.test(item.name) ? "an" : "a");
+  return `Build ${article} ${item.name}!`;
 }
 
 // Each piece shows only its own cut of the picture, so placed neighbors
 // continue the image across their shared knobs.
-function puzzlePieceArt(animal, index, shape) {
+function puzzlePieceArt(item, index, shape) {
   const { x, y, size } = Jigsaw.pieceBox(index % PUZZLE_GRID_SIZE, Math.floor(index / PUZZLE_GRID_SIZE));
   const art = svgElement("svg", { viewBox: `${x} ${y} ${size} ${size}`, "aria-hidden": "true" });
-  const picture = puzzlePicture(animal);
+  const picture = puzzlePicture(item);
   picture.setAttribute("mask", `url(#puzzle-cut-${index})`);
   art.append(
     svgElement("path", { class: "piece-hit", d: shape }),
@@ -547,10 +566,10 @@ function puzzlePieceArt(animal, index, shape) {
 }
 
 // The board shows a faint copy of the picture with every piece's outline.
-function renderPuzzleBoard(animal, shapes) {
+function renderPuzzleBoard(item, shapes) {
   const size = Jigsaw.SIZE * PUZZLE_GRID_SIZE;
   const guide = svgElement("svg", { class: "puzzle-guide", viewBox: `0 0 ${size} ${size}`, "aria-hidden": "true" });
-  const hint = puzzlePicture(animal);
+  const hint = puzzlePicture(item);
   hint.setAttribute("class", "puzzle-hint");
   guide.append(hint, ...shapes.map((shape) => svgElement("path", { class: "slot-edge", d: shape })));
   const slots = shapes.map((_, index) => {
@@ -560,13 +579,6 @@ function renderPuzzleBoard(animal, shapes) {
     return slot;
   });
   puzzleBoard.replaceChildren(guide, ...slots);
-}
-
-function choosePuzzleAnimal() {
-  const options = animals.length > 1
-    ? animals.filter((animal) => animal !== currentPuzzleAnimal)
-    : animals;
-  return options[Math.floor(Math.random() * options.length)];
 }
 
 function resetDraggedPiece(piece) {
@@ -608,7 +620,7 @@ function completePuzzle() {
   puzzleCompleting = true;
   cancelPuzzleDrag();
   playSuccessChime();
-  speakAfter(PUZZLE_NAME_DELAY_MS, currentPuzzleAnimal.name);
+  speakAfter(PUZZLE_NAME_DELAY_MS, currentPuzzle.name);
   puzzleScreen.classList.add("puzzle-complete");
   puzzleSuccess.hidden = false;
   puzzleSuccess.classList.remove("playing");
@@ -808,13 +820,13 @@ function beginPuzzleDrag(event) {
   else puzzleDragCandidates.set(event.pointerId, candidate);
 }
 
-function createPuzzlePiece(animal, index, shape) {
+function createPuzzlePiece(item, index, shape) {
   const piece = document.createElement("button");
   piece.type = "button";
   piece.className = "puzzle-piece";
   piece.dataset.index = index;
   piece.setAttribute("aria-label", "Puzzle piece");
-  piece.append(puzzlePieceArt(animal, index, shape));
+  piece.append(puzzlePieceArt(item, index, shape));
   piece.addEventListener("pointerdown", beginPuzzleDrag);
   piece.addEventListener("animationend", (event) => {
     if (event.animationName === "puzzle-mismatch-glow") piece.classList.remove("mismatch");
@@ -822,18 +834,23 @@ function createPuzzlePiece(animal, index, shape) {
   return piece;
 }
 
-function newPuzzle() {
+// picture is for tests; rounds normally deal from the deck.
+function newPuzzle(picture = upcomingPuzzle || PuzzleDeck.next(puzzleDeck)) {
   cancelPuzzleDrag();
   clearTimeout(puzzleSuccessTimer);
   puzzleCompleting = false;
   puzzleScreen.classList.remove("puzzle-complete");
   puzzleSuccess.classList.remove("playing");
   puzzleSuccess.hidden = true;
-  currentPuzzleAnimal = choosePuzzleAnimal();
+  currentPuzzle = picture;
+  // Load the next picture and this one's name while the child plays.
+  upcomingPuzzle = PuzzleDeck.next(puzzleDeck);
+  new Image().src = upcomingPuzzle.puzzleImage || upcomingPuzzle.image;
+  voiceClip(voicePath(currentPuzzle.name)).preload = "auto";
   puzzlePlaced = 0;
   puzzleScreen.querySelectorAll(".puzzle-piece.dropped").forEach((piece) => piece.remove());
-  puzzleName.textContent = `Build a ${currentPuzzleAnimal.name}!`;
-  // Fresh cuts every round, so the same animal comes apart differently.
+  puzzleName.textContent = puzzleTitle(currentPuzzle);
+  // Fresh cuts every round, so the same picture comes apart differently.
   const cuts = Jigsaw.createCuts(PUZZLE_GRID_SIZE, PUZZLE_GRID_SIZE);
   const shapes = [...Array(PUZZLE_PIECE_COUNT).keys()].map((index) =>
     Jigsaw.piecePath(cuts, index % PUZZLE_GRID_SIZE, Math.floor(index / PUZZLE_GRID_SIZE)));
@@ -845,10 +862,10 @@ function newPuzzle() {
     mask.append(svgElement("path", { class: "cut-mask", d: shape }));
     return mask;
   }));
-  puzzleHueRotate.setAttribute("values", String(currentPuzzleAnimal.hue || 0));
-  renderPuzzleBoard(currentPuzzleAnimal, shapes);
+  puzzleHueRotate.setAttribute("values", String(currentPuzzle.hue || 0));
+  renderPuzzleBoard(currentPuzzle, shapes);
   puzzleTray.replaceChildren(...shuffled([...shapes.keys()])
-    .map((index) => createPuzzlePiece(currentPuzzleAnimal, index, shapes[index])));
+    .map((index) => createPuzzlePiece(currentPuzzle, index, shapes[index])));
 }
 
 function puzzleAudio() {
@@ -1008,6 +1025,19 @@ function stopSpeech() {
   try { speechSynthesis.cancel(); } catch (_) {}
 }
 
+function voicePath(name) {
+  return `audio/${name.toLowerCase().replace(/\s+/g, "-")}.mp3`;
+}
+
+function voiceClip(source) {
+  let clip = voiceClips.get(source);
+  if (!clip) {
+    clip = new Audio(source);
+    voiceClips.set(source, clip);
+  }
+  return clip;
+}
+
 function speak(name, { audioPath, onEnd, onStop } = {}) {
   stopSpeech();
   const request = speechRequest;
@@ -1026,13 +1056,7 @@ function speak(name, { audioPath, onEnd, onStop } = {}) {
     speechCleanup?.();
     speechCleanup = null;
   };
-  const slug = name.toLowerCase().replace(/\s+/g, "-");
-  const source = audioPath || `audio/${slug}.mp3`;
-  let clip = voiceClips.get(source);
-  if (!clip) {
-    clip = new Audio(source);
-    voiceClips.set(source, clip);
-  }
+  const clip = voiceClip(audioPath || voicePath(name));
   currentClip = clip;
   clip.currentTime = 0;
   clip.onended = finish;

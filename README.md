@@ -43,8 +43,13 @@ The videos come from this YouTube playlist:
   tabs do not fit in one row, as on a phone, the tabs show their pictures only
   (the labels remain for screen readers). The title and **Today** timer sit in
   the top grip band, where they take no room from the pages.
-  Each round cuts an animal picture, on a sky-and-meadow backdrop, into a
-  3×3 jigsaw. Every inner cut has one interlocking knob, the outer edges are
+  Each round cuts a picture into a 3×3 jigsaw: one of 29 animals, 26
+  dinosaurs, 20 foods, or 8 robots. The kinds take turns in a shuffled order,
+  so no kind comes up twice in a row, and each kind shows every picture before
+  repeating one (`puzzle-deck.js`). Each kind has its own backdrop: a meadow
+  for animals, a volcano for dinosaurs, a picnic table for foods, and a moon
+  for robots. The heading reads "Build a Horse!", "Build an Owl!", or
+  "Build some Rice!" (`"article": "some"` in `foods.json`). Every inner cut has one interlocking knob, the outer edges are
   flat, and the cuts change every round (`jigsaw.js`). The board shows a faint
   copy of the picture with each piece's dashed outline, and spans the screen
   less an 8 px margin. The mixed-up pieces lie in a tray below it, smaller than
@@ -58,7 +63,7 @@ The videos come from this YouTube playlist:
   and seated neighbors join into one seamless picture. Only a piece's shape,
   plus a fingertip's margin, can be grabbed, so a loose piece's empty corners
   never block another piece. A star, particles, and chime celebrate a
-  completed puzzle. Once the chime fades (0.7 s), the animal's name plays in
+  completed puzzle. Once the chime fades (0.7 s), the picture's name plays in
   Randy's voice, the same recording its tile uses, and a new randomized round
   appears 4.2 s after completion. Leaving the tab, a screen-time lock, or
   hiding the app before then cancels the name. The puzzle stays fixed in the
@@ -279,14 +284,19 @@ center and slides home, and that a finished puzzle shows no backdrop through
 its cuts. The gap check first proves it can see a piece moved 6 px. It also
 logs every recording's play, pause and end to check that the animal's name
 plays once after the chime, in full, with no browser-speech fallback. Set
-`VIEWPORT=412x800` to run it at phone size.
+`VIEWPORT=412x800` to run it at phone size, and `PUZZLE=robot` (or `animal`,
+`dinosaur`, `food`, or one picture such as `PUZZLE="robot:Robot Dog"`) to play
+that kind.
 Run `node tests/browser-puzzle-layout.cjs` with the same setup to check the
 puzzle on three phone sizes, a sideways phone, and the tablet: one row of tabs,
 a board spanning the screen less 8 px, tray pieces clear of the grip band, and
-pieces that grow when picked up and shrink back where they are put down.
+pieces that grow when picked up and shrink back where they are put down. It
+also plays twelve rounds to check that kinds take turns, each on its own
+backdrop, and that every picture and recording loads.
 `node --test tests/*.test.js` includes the cut geometry: shared cuts, flat
 borders, knob size, and that every knob's head is wider than its neck. It also
-sweeps the layout solver across screen sizes.
+sweeps the layout solver across screen sizes, and checks the puzzle deck and
+that every puzzle picture has its art and name recording.
 Run `node tests/browser-multitouch.cjs` with the same setup to drag two pieces
 at once with real touch input in portrait and landscape, lift one finger while
 the other keeps dragging, and measure the wrong-slot shake and glow frame by
@@ -305,6 +315,10 @@ Deploy: `vercel --prod` (static site, no configuration needed).
 
 ## Credits
 
+Robot artwork in `images/robots/` is original, drawn in OpenMoji's style.
+Dinosaur puzzle cutouts are modified from the illustrations listed in
+[DINOSAUR_CREDITS.md](DINOSAUR_CREDITS.md) and keep their licenses.
+
 Animal artwork from [OpenMoji](https://openmoji.org) — the open-source
 emoji and icon project, licensed
 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
@@ -313,6 +327,23 @@ yak is a bison, the guinea pig is a hamster, and several birds share the
 songbird art with shifted colors) — swap any file in `images/` to change.
 
 "Fredoka" typeface (SIL Open Font License) is self-hosted in `fonts/`.
+
+## Puzzle pictures
+
+- Animals and foods use their tile artwork. Animals that share a name, such
+  as the two geese, make one puzzle.
+- Dinosaur tiles are wide paintings, mostly on white. Run
+  `scripts/build-puzzle-dinosaurs.py` (Pillow with WebP, NumPy, SciPy) to
+  rebuild the square cutouts in `images/dinosaurs/puzzle/`. It removes the
+  white, keeps soft ground shadows as translucent shade, and centers each
+  dinosaur so its feet stand on the puzzle's ground. Brontosaurus is a painted
+  scene, so it is cropped to a square instead. The script records each path as
+  `puzzleImage` in `dinosaurs.json`.
+- Robots exist only as puzzles: `robots.json`, original OpenMoji-style art in
+  `images/robots/`, and name recordings in `audio/`. They were made with
+  `randysay --voice-id-env ELEVENLABS_RANDY_VOICE_ID --text "Robot Dog" -o audio/robot-dog.mp3`,
+  keeping the take Whisper heard correctly whose pitch best matched the
+  existing names.
 
 ## Lessons and alphabet speech
 

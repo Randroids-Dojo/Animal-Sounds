@@ -300,7 +300,7 @@ test("a finished puzzle speaks its animal's name once the chime has faded", asyn
     assert.ok(fs.statSync(require("node:path").join(__dirname, "..", audio)).size > 0, `${animal.name} has a recording`);
   }
   const app = setup({ apiReady: false });
-  const finish = (animal) => app.run(`puzzleCompleting = false; currentPuzzleAnimal = ${JSON.stringify(animal)}; completePuzzle()`);
+  const finish = (animal) => app.run(`puzzleCompleting = false; currentPuzzle = ${JSON.stringify(animal)}; completePuzzle()`);
   finish({ name: "Guinea Pig", image: "images/guinea-pig.svg" });
   app.tick(699);
   assert.equal(app.clips.length, 0, "the chime plays alone first");

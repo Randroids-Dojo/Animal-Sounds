@@ -4,7 +4,9 @@
 // puzzle layout on phones and the tablet, upright and counter-rotated: one row
 // of tabs, a board as wide as the screen less a small margin, and a tray whose
 // pieces all sit clear of the grip band. A tray piece grows to its seated size
-// when picked up, and goes back to its tray size where it is put down.
+// when picked up, and goes back to its tray size where it is put down. Rounds
+// take turns between animals, dinosaurs, foods and robots, each on its own
+// backdrop, and every picture and name recording they use loads.
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -107,6 +109,36 @@ const VIEWPORTS = [
         assert.ok(Math.abs(rest.width - box.width) < 1, `${label}: a put-down piece goes back to its tray size: ${rest.width}`);
         assert.ok(Math.hypot(rest.x + rest.width / 2 - to.x, rest.y + rest.height / 2 - to.y) < 1, `${label}: it rests where the finger let go`);
         assert.equal(await page.locator(".puzzle-slot.filled").count(), 0, `${label}: nothing seats from the tray`);
+      }
+      if (viewport.label === "phone") {
+        const rounds = await page.evaluate(async () => {
+          const played = [];
+          for (let round = 0; round < 12; round += 1) {
+            newPuzzle();
+            const art = document.querySelector("#puzzle-board .puzzle-guide image").getAttribute("href");
+            const voice = voicePath(currentPuzzle.name);
+            played.push({
+              name: currentPuzzle.name,
+              kind: currentPuzzle.kind || "animal",
+              backdrop: document.querySelector("#puzzle-board .puzzle-guide use").getAttribute("href"),
+              pieceBackdrops: [...document.querySelectorAll("#puzzle-tray .puzzle-piece use")].map((use) => use.getAttribute("href")),
+              title: document.getElementById("puzzle-name").textContent,
+              artLoads: (await fetch(art)).ok,
+              voiceLoads: (await fetch(voice)).ok,
+            });
+          }
+          return played;
+        });
+        for (let i = 0; i < rounds.length; i += 1) {
+          const round = rounds[i];
+          assert.equal(round.backdrop, `#puzzle-scene-${round.kind}`, `${round.name} uses its kind's backdrop`);
+          assert.ok(round.pieceBackdrops.every((href) => href === round.backdrop), `${round.name}: every piece shares it`);
+          assert.match(round.title, /^Build (a|an|some) .+!$/);
+          assert.ok(round.artLoads && round.voiceLoads, `${round.name}: picture and recording load`);
+          if (i) assert.notEqual(round.kind, rounds[i - 1].kind, "no kind twice in a row");
+        }
+        assert.equal(new Set(rounds.map((round) => round.kind)).size, 4, "all four kinds come up");
+        metrics.rounds = rounds.map((round) => round.title).join(" | ");
       }
       assert.deepEqual(errors, []);
       results.push(metrics);

@@ -15,7 +15,8 @@ const path = require("node:path");
 
 (async () => {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
-  // VIEWPORT=412x800 runs the same checks at phone size.
+  // VIEWPORT=412x800 runs the same checks at phone size. PUZZLE=dinosaur (or
+  // animal, food, robot) plays a picture of that kind.
   const [width, height] = (process.env.VIEWPORT || "800x1340").split("x").map(Number);
   const context = await browser.newContext({ viewport: { width, height }, hasTouch: true });
   const page = await context.newPage();
@@ -72,6 +73,30 @@ const path = require("node:path");
     return count;
   }
 
+  // Pixels unlike every reference pixel within one pixel of them. Each piece
+  // is snapped to whole pixels on its own, so its straight outlines may sit
+  // up to a pixel off the whole picture; anything farther is a misplaced piece.
+  function misplacedPixels(a, reference, threshold) {
+    const { width, height } = a;
+    let count = 0;
+    for (let y = 1; y < height - 1; y += 1) {
+      for (let x = 1; x < width - 1; x += 1) {
+        const i = (y * width + x) * 4;
+        let matched = false;
+        for (let dy = -1; dy <= 1 && !matched; dy += 1) {
+          for (let dx = -1; dx <= 1 && !matched; dx += 1) {
+            const j = ((y + dy) * width + x + dx) * 4;
+            let delta = 0;
+            for (let channel = 0; channel < 3; channel += 1) delta = Math.max(delta, Math.abs(a.pixels[i + channel] - reference.pixels[j + channel]));
+            matched = delta <= threshold;
+          }
+        }
+        if (!matched) count += 1;
+      }
+    }
+    return count;
+  }
+
   // Seated pieces must hide the board completely: any pixel whose color
   // changes with the backdrop behind them is a gap.
   async function seeThrough() {
@@ -112,6 +137,14 @@ const path = require("node:path");
     await page.locator(".tile").first().waitFor();
     await page.locator("#idle-dim").tap();
     await page.getByRole("button", { name: "🧩 Puzzle", exact: true }).tap();
+    if (process.env.PUZZLE) {
+      // PUZZLE=robot:Robot Cat picks one picture.
+      await page.evaluate(([kind, name]) => {
+        const pictures = puzzleDeck.collections[kind].filter((picture) => !name || picture.name === name);
+        newPuzzle(pictures[Math.floor(Math.random() * pictures.length)]);
+      }, process.env.PUZZLE.split(":"));
+    }
+    const picture = await page.evaluate(() => ({ name: currentPuzzle.name, kind: currentPuzzle.kind || "animal" }));
     await settle();
     await page.screenshot({ path: path.join(evidence, "round.png") });
 
@@ -213,7 +246,6 @@ const path = require("node:path");
         observer.disconnect();
       }).observe(document.getElementById("puzzle-screen"), { attributes: true, attributeFilter: ["class"] });
     });
-    const animalName = (await page.locator("#puzzle-name").textContent()).replace(/^Build an? |!$/g, "");
     while (await page.locator("#puzzle-tray .puzzle-piece").count()) {
       const piece = page.locator("#puzzle-tray .puzzle-piece").first();
       const index = await piece.getAttribute("data-index");
@@ -249,9 +281,7 @@ const path = require("node:path");
     await settle();
     const reference = await boardPixels();
     await page.evaluate(() => document.getElementById("reference-picture").remove());
-    // Each piece is pixel-snapped on its own, so outlines may jog by under a
-    // pixel at a cut; only pixels along the cuts may differ from the picture.
-    const misregistered = differingPixels(assembled.magenta, reference, 100);
+    const misregistered = misplacedPixels(assembled.magenta, reference, 100);
     // Length of the inner cuts on screen: every piece outline, less the
     // picture's border, counts each cut twice.
     const cutPx = await page.evaluate(() => {
@@ -268,15 +298,15 @@ const path = require("node:path");
       document.querySelector('.puzzle-slot[data-index="4"] .puzzle-piece').style.translate = "6px 0";
     });
     const shifted = await seeThrough();
-    const shiftedMisregistered = differingPixels(shifted.magenta, reference, 100);
+    const shiftedMisregistered = misplacedPixels(shifted.magenta, reference, 100);
     assert.ok(shifted.gaps > 100, `the gap check sees a 6 px misplacement: ${shifted.gaps} px`);
-    assert.ok(shiftedMisregistered > 4 * misregistered, `the picture check sees it too: ${shiftedMisregistered} vs ${misregistered} px`);
+    assert.ok(shiftedMisregistered > Math.max(100, 4 * misregistered), `the picture check sees it too: ${shiftedMisregistered} vs ${misregistered} px`);
     assert.equal(seams.gaps, 0, `seated pieces leave no gaps: ${seams.gaps} px show the backdrop`);
-    assert.ok(seams.misregisteredPerCutPx < 0.5, `seated pieces line up with the picture: ${seams.misregisteredPerCutPx} px differ per px of cut`);
+    assert.ok(seams.misregisteredPerCutPx < 0.05, `seated pieces line up with the picture: ${seams.misregisteredPerCutPx} px misplaced per px of cut`);
 
     // The animal's own recording plays once the chime has faded, in full,
     // and well before the next round would start 4.2 s after completion.
-    const clip = `audio/${animalName.toLowerCase().replace(/\s+/g, "-")}.mp3`;
+    const clip = `audio/${picture.name.toLowerCase().replace(/\s+/g, "-")}.mp3`;
     await page.waitForFunction((src) => window.speechLog.some((entry) => entry.src === src
       && (entry.event === "ended" || (entry.event === "pause" && entry.at < entry.duration - 0.05))), clip, { timeout: 5000 });
     const { log, completedAt } = await page.evaluate(() => ({ log: window.speechLog, completedAt: window.completedAt }));
@@ -300,7 +330,7 @@ const path = require("node:path");
     assert.ok(spoken.endedMs < 4200 - 1000, `the name ends well before the next round: ${spoken.endedMs} ms`);
     assert.equal(spoken.otherSounds, 0, "nothing else is spoken");
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ passed: true, evidence, knobPx: Number(knob.out.toFixed(1)), snap, seams, shifted6px: { gaps: shifted.gaps, misregistered: shiftedMisregistered }, spoken }, null, 2));
+    console.log(JSON.stringify({ passed: true, evidence, picture, knobPx: Number(knob.out.toFixed(1)), snap, seams, shifted6px: { gaps: shifted.gaps, misregistered: shiftedMisregistered }, spoken }, null, 2));
   } catch (error) {
     await page.screenshot({ path: path.join(evidence, "failure.png") });
     console.error(evidence);

@@ -2,6 +2,10 @@
 
 Images downloaded from Wikimedia Commons, resized by Wikimedia to thumbnail resolution; no other changes.
 
+The puzzle versions in `images/dinosaurs/puzzle/` are modified by `scripts/build-puzzle-dinosaurs.py`:
+white backgrounds removed, margins trimmed, and each animal placed on a transparent square (Brontosaurus
+is cropped to a square instead), saved as WebP. Each keeps the license of its original below.
+
 - **Tyrannosaurus Rex**: [Tyrannosaurus-rex-Profile-steveoc86 (coloured).png](https://commons.wikimedia.org/wiki/File:Tyrannosaurus-rex-Profile-steveoc86_(coloured).png), Steveoc 86. [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0).
 - **Triceratops**: [Triceratops by Tom Patker.png](https://commons.wikimedia.org/wiki/File:Triceratops_by_Tom_Patker.png), Tomopteryx. [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0).
 - **Stegosaurus**: [Stegosaurus stenops Life Reconstruction.png](https://commons.wikimedia.org/wiki/File:Stegosaurus_stenops_Life_Reconstruction.png), Fred Wierum. [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0).
