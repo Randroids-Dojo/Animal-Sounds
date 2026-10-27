@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Robot",
+    "image": "images/robots/robot.svg",
+    "kind": "robot"
+  },
+  {
+    "name": "Robot Dog",
+    "image": "images/robots/robot-dog.svg",
+    "kind": "robot"
+  },
+  {
+    "name": "Robot Cat",
+    "image": "images/robots/robot-cat.svg",
+    "kind": "robot"
+  },
+  {
+    "name": "Robot Dinosaur",
+    "image": "images/robots/robot-dinosaur.svg",
+    "kind": "robot"
+  },
+  {
+    "name": "Space Robot",
+    "image": "images/robots/space-robot.svg",
+    "kind": "robot"
+  },
+  {
+    "name": "Flying Robot",
+    "image": "images/robots/flying-robot.svg",
+    "kind": "robot"
+  },
+  {
+    "name": "Rolling Robot",
+    "image": "images/robots/rolling-robot.svg",
+    "kind": "robot"
+  },
+  {
+    "name": "Robot Fish",
+    "image": "images/robots/robot-fish.svg",
+    "kind": "robot"
+  }
+]

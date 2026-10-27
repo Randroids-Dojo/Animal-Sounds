@@ -1,0 +1,29 @@
+<svg id="emoji" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+  <g id="color">
+    <ellipse cx="25" cy="7" rx="10" ry="2.8" fill="#d22f27"/>
+    <ellipse cx="47" cy="7" rx="10" ry="2.8" fill="#d22f27"/>
+    <rect x="33.5" y="9" width="5" height="7" fill="#9b9b9a"/>
+    <path d="M36,57 C33,61 33.5,64 36,68 C38.5,64 39,61 36,57 Z" fill="#f4aa41"/>
+    <rect x="30" y="50" width="12" height="7" rx="2" fill="#9b9b9a"/>
+    <circle cx="8" cy="27" r="3.4" fill="#d0cfce"/>
+    <circle cx="64" cy="27" r="3.4" fill="#d0cfce"/>
+    <circle cx="36" cy="34" r="19" fill="#fcea2b"/>
+    <rect x="22" y="24" width="28" height="14" rx="7" fill="#1e50a0"/>
+  </g>
+  <g id="line" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+    <ellipse cx="25" cy="7" rx="10" ry="2.8"/>
+    <ellipse cx="47" cy="7" rx="10" ry="2.8"/>
+    <rect x="33.5" y="9" width="5" height="7"/>
+    <path d="M36,57 C33,61 33.5,64 36,68 C38.5,64 39,61 36,57"/>
+    <rect x="30" y="50" width="12" height="7" rx="2"/>
+    <path d="M17.5,36 L10.5,29.5"/>
+    <path d="M54.5,36 L61.5,29.5"/>
+    <circle cx="8" cy="27" r="3.4"/>
+    <circle cx="64" cy="27" r="3.4"/>
+    <circle cx="36" cy="34" r="19"/>
+    <rect x="22" y="24" width="28" height="14" rx="7"/>
+    <path d="M27,33 Q30,28.5 33,33" stroke="#fff"/>
+    <path d="M39,33 Q42,28.5 45,33" stroke="#fff"/>
+    <path d="M30,44 Q36,48.5 42,44"/>
+  </g>
+</svg>

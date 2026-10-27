@@ -1,0 +1,158 @@
+[
+  {
+    "name": "Tyrannosaurus Rex",
+    "image": "images/dinosaurs/tyrannosaurus-rex.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/tyrannosaurus-rex.webp"
+  },
+  {
+    "name": "Triceratops",
+    "image": "images/dinosaurs/triceratops.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/triceratops.webp"
+  },
+  {
+    "name": "Stegosaurus",
+    "image": "images/dinosaurs/stegosaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/stegosaurus.webp"
+  },
+  {
+    "name": "Brachiosaurus",
+    "image": "images/dinosaurs/brachiosaurus.jpg",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/brachiosaurus.webp"
+  },
+  {
+    "name": "Brontosaurus",
+    "image": "images/dinosaurs/brontosaurus.jpg",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/brontosaurus.webp"
+  },
+  {
+    "name": "Diplodocus",
+    "image": "images/dinosaurs/diplodocus.jpg",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/diplodocus.webp"
+  },
+  {
+    "name": "Velociraptor",
+    "image": "images/dinosaurs/velociraptor.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/velociraptor.webp"
+  },
+  {
+    "name": "Spinosaurus",
+    "image": "images/dinosaurs/spinosaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/spinosaurus.webp"
+  },
+  {
+    "name": "Ankylosaurus",
+    "image": "images/dinosaurs/ankylosaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/ankylosaurus.webp"
+  },
+  {
+    "name": "Parasaurolophus",
+    "image": "images/dinosaurs/parasaurolophus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/parasaurolophus.webp"
+  },
+  {
+    "name": "Allosaurus",
+    "image": "images/dinosaurs/allosaurus.jpg",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/allosaurus.webp"
+  },
+  {
+    "name": "Pachycephalosaurus",
+    "image": "images/dinosaurs/pachycephalosaurus.jpg",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/pachycephalosaurus.webp"
+  },
+  {
+    "name": "Iguanodon",
+    "image": "images/dinosaurs/iguanodon.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/iguanodon.webp"
+  },
+  {
+    "name": "Carnotaurus",
+    "image": "images/dinosaurs/carnotaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/carnotaurus.webp"
+  },
+  {
+    "name": "Dilophosaurus",
+    "image": "images/dinosaurs/dilophosaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/dilophosaurus.webp"
+  },
+  {
+    "name": "Therizinosaurus",
+    "image": "images/dinosaurs/therizinosaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/therizinosaurus.webp"
+  },
+  {
+    "name": "Amargasaurus",
+    "image": "images/dinosaurs/amargasaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/amargasaurus.webp"
+  },
+  {
+    "name": "Gallimimus",
+    "image": "images/dinosaurs/gallimimus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/gallimimus.webp"
+  },
+  {
+    "name": "Microraptor",
+    "image": "images/dinosaurs/microraptor.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/microraptor.webp"
+  },
+  {
+    "name": "Psittacosaurus",
+    "image": "images/dinosaurs/psittacosaurus.jpg",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/psittacosaurus.webp"
+  },
+  {
+    "name": "Deinocheirus",
+    "image": "images/dinosaurs/deinocheirus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/deinocheirus.webp"
+  },
+  {
+    "name": "Oviraptor",
+    "image": "images/dinosaurs/oviraptor.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/oviraptor.webp"
+  },
+  {
+    "name": "Styracosaurus",
+    "image": "images/dinosaurs/styracosaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/styracosaurus.webp"
+  },
+  {
+    "name": "Protoceratops",
+    "image": "images/dinosaurs/protoceratops.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/protoceratops.webp"
+  },
+  {
+    "name": "Ouranosaurus",
+    "image": "images/dinosaurs/ouranosaurus.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/ouranosaurus.webp"
+  },
+  {
+    "name": "Concavenator",
+    "image": "images/dinosaurs/concavenator.png",
+    "kind": "dinosaur",
+    "puzzleImage": "images/dinosaurs/puzzle/concavenator.webp"
+  }
+]

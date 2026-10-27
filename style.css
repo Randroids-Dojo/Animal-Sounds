@@ -3,6 +3,10 @@
    theme-color meta and manifest.json — keep those in sync. */
 
 :root {
+  --play-width: 100vw;
+  --play-height: 100dvh;
+  /* Width of the grip band around every page; see #safe-area. */
+  --safe-edge: 48px;
   --sky: #DFF1F7;          /* page background */
   --ink: #3B3560;          /* text */
   --ink-shadow: rgba(59, 53, 96, 0.12);
@@ -52,15 +56,36 @@ body::after {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  padding: 10px 18px 2px;
+  padding: calc(var(--safe-edge) + 2px) var(--safe-edge) 2px;
+}
+
+/* The title and today's time sit in the top grip band, so they take no room
+   from the pages. They ignore touches, which the band swallows anyway. */
+.topbar h1,
+#daily-time {
+  position: fixed;
+  top: calc(var(--safe-edge) / 2);
+  z-index: 10;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .topbar h1 {
+  left: var(--safe-edge);
   margin: 0;
   font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   opacity: 0.55;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---------- Play pages ---------- */
@@ -70,11 +95,9 @@ body::after {
 }
 
 #pages {
-  width: 100%;
+  width: var(--play-width);
 }
 
-/* Offscreen transforms keep both pages laid out and rasterized. Hidden
-   pages retain their small game state but have no render tree or hit targets. */
 .app-screen[hidden] { display: none; }
 
 /* The puzzle is a fixed play surface: no browser pan, pinch, or page scroll
@@ -82,8 +105,27 @@ body::after {
 body[data-page="puzzle"] {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: 100dvh;
+  width: var(--play-width);
+  height: var(--play-height);
   overflow: hidden;
+}
+
+/* Keep the physical play surface in portrait even when a kiosk WebView
+   rejects screen.orientation.lock(). Its fixed drag ghosts rotate with it. */
+body[data-page="puzzle"][data-portrait-rotation="90"],
+body[data-page="puzzle"][data-portrait-rotation="-90"] {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+body[data-page="puzzle"][data-portrait-rotation="90"] {
+  transform: translateX(100vw) rotate(90deg);
+}
+
+body[data-page="puzzle"][data-portrait-rotation="-90"] {
+  transform: translateY(100dvh) rotate(-90deg);
 }
 
 body[data-page="puzzle"] #page-viewport {
@@ -95,11 +137,30 @@ body[data-page="puzzle"] #pages {
 }
 
 .app-screen {
-  width: 100%;
+  width: var(--play-width);
   min-width: 0;
+  padding: 0 var(--safe-edge) var(--safe-edge);
 }
 
+/* Grip band: touches within --safe-edge of any screen edge do nothing, so
+   hands holding the tablet cannot tap, scroll, or drag. Pages keep their
+   content inside it, and scrolling content passes beneath it. */
+#safe-area > div {
+  position: fixed;
+  z-index: 9;
+  background: var(--sky);
+}
+
+#safe-area > :nth-child(1) { inset: 0 0 auto; height: var(--safe-edge); }
+#safe-area > :nth-child(2) { inset: auto 0 0; height: var(--safe-edge); }
+#safe-area > :nth-child(3) { inset: 0 auto 0 0; width: var(--safe-edge); }
+#safe-area > :nth-child(4) { inset: 0 0 0 auto; width: var(--safe-edge); }
+
+/* The puzzle never scrolls, so its gradient can show through the band. */
+body[data-page="puzzle"] #safe-area > div { background: none; }
+
 #daily-time {
+  right: var(--safe-edge);
   display: flex;
   align-items: baseline;
   gap: 5px;
@@ -123,16 +184,18 @@ body[data-page="puzzle"] #pages {
   grid-column: 1 / -1;
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 6px;
+  container-type: inline-size;
 }
 
 #page-tabs button {
-  min-width: min(38vw, 180px);
+  min-width: 0;
+  flex: 1;
+  max-width: 180px;
   min-height: 54px;
   border: 2px solid rgba(59, 53, 96, 0.14);
   border-radius: 999px;
-  padding: 10px 22px;
+  padding: 10px 8px;
   background: rgba(255, 255, 255, 0.5);
   color: var(--ink);
   font: 600 1.05rem/1 inherit;
@@ -143,9 +206,27 @@ body[data-page="puzzle"] #pages {
   background: var(--cream);
 }
 
+/* Too narrow for six labels in one row, as on a phone: show the pictures
+   only. The labels stay for screen readers. */
+@container (max-width: 640px) {
+  #page-tabs button {
+    padding: 6px 2px;
+    font-size: 1.6rem;
+  }
+
+  #page-tabs .tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /* ---------- Tile grid ---------- */
 
-#grid {
+#grid, #dinosaur-grid, #food-grid, #alphabet-grid, #lesson-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 14px;
@@ -153,7 +234,7 @@ body[data-page="puzzle"] #pages {
 }
 
 @media (min-width: 700px) {
-  #grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
+  #grid, #dinosaur-grid, #food-grid, #alphabet-grid, #lesson-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 18px; }
 }
 
 .tile {
@@ -220,113 +301,149 @@ body[data-page="puzzle"] #pages {
 /* ---------- Animal puzzle ---------- */
 
 #puzzle-screen {
-  /* Reserve room for the header, instructions, section labels and padding;
-     otherwise the last row is clipped in the tablet's landscape viewport. */
-  --puzzle-size: min(80vw, 360px, calc((100dvh - 320px) / 2));
   position: relative;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  padding: 4px 14px 24px;
+  padding: 4px 0 var(--safe-edge);
   background: linear-gradient(155deg, #E3DCFA 0%, var(--sky) 48%, #C9EDD3 100%);
   touch-action: none;
+  /* app.js sets these: a piece's box over its cell's side (from jigsaw.js),
+     and the board and tray sizes that Jigsaw.fitLayout() picks. */
+  --piece-span: 1.56;
+  --board-size: 300px;
+  --tray-piece: 72px;
+  --tray-columns: 3;
 }
 
 .puzzle-heading {
   text-align: center;
 }
 
-.puzzle-heading p {
-  margin: 3px 0 0;
-  color: #635A91;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .puzzle-heading h2 {
-  margin: 2px 0 0;
-  font-size: clamp(1.45rem, 5vw, 2.2rem);
+  margin: 0 0 6px;
+  font-size: clamp(1.45rem, calc(var(--play-width) * 0.05), 2.2rem);
+  line-height: 1.2;
 }
 
-.puzzle-heading span {
-  display: block;
-  margin: 2px 0 9px;
-  font-size: 0.9rem;
-  opacity: 0.62;
-}
-
-#puzzle-board,
-#puzzle-tray {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  width: var(--puzzle-size);
-  margin-inline: auto;
-}
-
-.puzzle-section > h3 {
-  width: var(--puzzle-size);
-  margin: 10px auto 5px;
-  color: #635A91;
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
+/* The board is the picture's frame: a faint copy of the picture with each
+   piece's outline, and one slot per cell for the pieces to seat in. It spans
+   the screen less a small margin. It takes no touches, so it may reach under
+   the grip band. */
 #puzzle-board {
-  padding: 7px;
+  position: relative;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  width: var(--board-size);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border: 7px solid #FFF6DA;
   border-radius: 22px;
   background: #FFF6DA;
   box-shadow: 0 7px 0 rgba(59, 53, 96, 0.12);
 }
 
-.puzzle-slot,
-.puzzle-piece {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: 13px;
-  background-repeat: no-repeat;
-  background-size: 300% 300%;
+.puzzle-guide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.puzzle-hint {
+  opacity: 0.3;
+}
+
+.slot-edge {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.slot-edge.filled {
+  stroke: rgba(59, 53, 96, 0.12);
+  stroke-width: 2px;
 }
 
 .puzzle-slot {
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 5px solid var(--ink);
-  box-shadow: inset 0 0 0 3px var(--cream);
+  position: relative;
+  min-width: 0;
 }
 
-.puzzle-slot.filled {
-  border-width: 3px;
-  border-color: rgba(59, 53, 96, 0.12);
-  box-shadow: none;
+/* The stroke lets seated pieces overlap; app.js sizes it to about 3 px. */
+.cut-mask {
+  fill: #FFF;
+  stroke: #FFF;
+  stroke-width: var(--cut-bleed, 2.5);
+  stroke-linejoin: round;
 }
 
+#puzzle-defs {
+  position: absolute;
+}
+
+/* Loose pieces lie here smaller than they sit on the board; a piece grows
+   to its real size while it is carried. */
 #puzzle-tray {
-  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  gap: 6px;
+  width: calc(var(--tray-columns) * (var(--tray-piece) + 6px) - 6px + 16px);
+  margin: 10px auto 0;
   padding: 8px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.65);
 }
 
+/* Only the jigsaw shape and a fingertip's margin around it can be grabbed,
+   so a loose piece's empty corners never cover another piece. */
 .puzzle-piece {
+  position: relative;
+  display: block;
+  width: var(--tray-piece);
+  aspect-ratio: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   appearance: none;
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 3px 0 rgba(59, 53, 96, 0.2);
   cursor: grab;
   touch-action: none;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 0 rgba(59, 53, 96, 0.2));
 }
 
-.puzzle-piece::after {
-  position: absolute;
-  inset: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.42);
-  border-radius: 8px;
-  content: "";
-  pointer-events: none;
+#puzzle-tray .puzzle-piece {
+  flex: none;
+}
+
+.puzzle-piece svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* A fingertip's margin around the shape, the same at every piece size. */
+.piece-hit {
+  fill: none;
+  stroke: none;
+  stroke-width: 16px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.piece-edge {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .puzzle-piece:focus-visible {
@@ -339,12 +456,15 @@ body[data-page="puzzle"] #pages {
   left: 0;
   top: 0;
   z-index: 30;
-  margin: 0;
-  pointer-events: none;
   cursor: grabbing;
-  opacity: 0.94;
+  opacity: 0.96;
+  filter: drop-shadow(0 12px 10px rgba(20, 18, 39, 0.3));
   will-change: transform;
-  box-shadow: 0 12px 20px rgba(20, 18, 39, 0.28);
+}
+
+.puzzle-piece.dragging .piece-hit,
+.puzzle-piece.placed .piece-hit {
+  pointer-events: none;
 }
 
 .puzzle-piece.drag-source {
@@ -354,32 +474,58 @@ body[data-page="puzzle"] #pages {
 .puzzle-piece.dropped {
   position: absolute;
   z-index: 3;
-  margin: 0;
+}
+
+/* A piece left on the wrong slot shakes a little and glows faint red. */
+.puzzle-piece.mismatch {
+  animation:
+    puzzle-mismatch-shake 0.36s ease-in-out,
+    puzzle-mismatch-glow 0.9s ease-out;
+}
+
+@keyframes puzzle-mismatch-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes puzzle-mismatch-glow {
+  0%, 20% {
+    filter: drop-shadow(0 3px 0 rgba(59, 53, 96, 0.2)) drop-shadow(0 0 3px rgba(232, 80, 80, 0.4)) drop-shadow(0 0 10px rgba(232, 80, 80, 0.35));
+  }
+  100% {
+    filter: drop-shadow(0 3px 0 rgba(59, 53, 96, 0.2)) drop-shadow(0 0 3px rgba(232, 80, 80, 0)) drop-shadow(0 0 10px rgba(232, 80, 80, 0));
+  }
+}
+
+/* A seated piece overhangs its cell by the knob room on every side, so its
+   knobs sit in the neighbors' sockets. */
+.puzzle-slot.filled > .puzzle-piece {
+  position: absolute;
+  inset: calc((1 - var(--piece-span)) * 50%);
+  width: auto;
+  aspect-ratio: auto;
 }
 
 .puzzle-piece.placed {
-  box-shadow: none;
   cursor: default;
+  filter: none;
 }
 
-.puzzle-slot.filled > .puzzle-piece {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  aspect-ratio: auto;
-  border-radius: 10px;
+.puzzle-piece.placed .piece-edge {
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 1.5px;
 }
 
 #puzzle-success {
   position: absolute;
   left: 50%;
-  top: clamp(120px, 30vw, 190px);
+  top: clamp(120px, calc(var(--play-width) * 0.3), 190px);
   z-index: 50;
-  width: min(86vw, 390px);
-  height: min(86vw, 390px);
+  width: min(calc(var(--play-width) * 0.86), 390px);
+  height: min(calc(var(--play-width) * 0.86), 390px);
   pointer-events: none;
   transform: translateX(-50%);
 }
@@ -392,7 +538,7 @@ body[data-page="puzzle"] #pages {
   bottom: 48%;
   width: max-content;
   color: var(--cream);
-  font-size: clamp(2rem, 8vw, 3.5rem);
+  font-size: clamp(2rem, calc(var(--play-width) * 0.08), 3.5rem);
   line-height: 1;
   opacity: 0;
   text-shadow: 0 4px 0 #635A91, 0 9px 18px rgba(20, 18, 39, 0.32);
@@ -408,7 +554,7 @@ body[data-page="puzzle"] #pages {
   left: 50%;
   bottom: 37%;
   color: #FFD24D;
-  font-size: clamp(4.4rem, 20vw, 7rem);
+  font-size: clamp(4.4rem, calc(var(--play-width) * 0.2), 7rem);
   line-height: 1;
   opacity: 0;
   text-shadow: 0 4px 0 #E7A72A, 0 9px 18px rgba(59, 53, 96, 0.25);
@@ -558,8 +704,8 @@ body[data-page="puzzle"] #pages {
    always matches the hold time. */
 #close-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: calc(var(--safe-edge) + 10px);
+  right: calc(var(--safe-edge) + 10px);
   z-index: 13;
   width: 44px;
   height: 44px;
@@ -616,6 +762,7 @@ body[data-page="puzzle"] #pages {
 
 /* Idle time pauses screen-time accounting until a deliberate wake tap. */
 #idle-dim {
+  touch-action: none;
   position: fixed;
   inset: 0;
   z-index: 19;
@@ -643,8 +790,38 @@ body[data-page="puzzle"] #pages {
   .tile:active { animation: none; }
   #loading-img { animation: none; }
   #close-btn { transition: none; }
+  .puzzle-piece.mismatch { animation: puzzle-mismatch-glow 0.9s ease-out; }
   #puzzle-screen.puzzle-complete .puzzle-slot.filled {
     animation: none;
     opacity: 0;
   }
 }
+
+/* Only the current page contributes height and accepts keyboard focus. */
+.app-screen[inert] { visibility: hidden; height: 0; overflow: hidden; }
+.dinosaur-hint { margin: 12px 14px 0; text-align: center; }
+/* Blend white illustration backdrops into each pastel card. Keep blending
+   inside the tile so it cannot interact with the page or dimming layers. */
+#dinosaur-grid .tile { isolation: isolate; }
+#dinosaur-grid .tile img {
+  width: 94%;
+  height: 65%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+#dinosaur-grid .tile-name { font-size: clamp(0.9rem, 2.5vw, 1.2rem); overflow-wrap: anywhere; }
+
+#dinosaur-grid .long-name { font-size: 0.8rem; }
+
+.dinosaur-credits { padding: 0 18px 14px; font-size: 0.75rem; }
+.dinosaur-credits a { color: inherit; }
+.dinosaur-credits li { margin-block: 8px; }
+
+#alphabet-grid .tile-name { font-size: clamp(0.95rem, 2.4vw, 1.25rem); line-height: 1.2; }
+#alphabet-grid .tile img { height: 65%; object-fit: contain; }
+.alphabet-tile.speaking { outline: 4px solid var(--ink); outline-offset: -4px; }
+
+
+#lesson-grid { max-width: 720px; margin: 0 auto; }
+#lesson-grid .lesson-art { width: 72%; max-height: 70%; aspect-ratio: 400 / 410; pointer-events: none; }
+#lesson-grid svg { display: block; width: 100%; height: 100%; overflow: visible; }

@@ -11,6 +11,8 @@
     recordInteraction,
     loadYouTubeApi,
     playSuccessChime,
+    playSnapSound,
+    speakAfter,
     Audio: window.Audio,
     YT: window.YT,
     speech: Object.getOwnPropertyDescriptor(window, "speechSynthesis"),
@@ -44,9 +46,11 @@
     } });
     window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
     check("startup does not load YouTube or build the hidden puzzle",
-      !document.querySelector("#youtube-api") && !currentPuzzleAnimal && !puzzleTray.children.length);
+      !document.querySelector("#youtube-api") && !currentPuzzle && !puzzleTray.children.length);
     recordInteraction = () => {};
     playSuccessChime = () => {};
+    playSnapSound = () => {};
+    speakAfter = () => {};
     Element.prototype.setPointerCapture = () => {};
     Element.prototype.hasPointerCapture = () => false;
     Element.prototype.releasePointerCapture = () => {};
@@ -54,11 +58,11 @@
     timeLimit.hidden = true;
     showPage("puzzle");
     check("inactive Sounds screen has no layout",
-      animalScreen.hidden && grid.getBoundingClientRect().width === 0);
+      document.getElementById('animal-screen').hidden && grid.getBoundingClientRect().width === 0);
     let piece = puzzleTray.querySelector(".puzzle-piece");
     const point = start(piece);
-    check("8px movement immediately claims a piece", puzzleDrag?.piece === piece);
-    const ghost = puzzleDrag.ghost;
+    check("8px movement immediately claims a piece", puzzleDrags.get(200)?.piece === piece);
+    const ghost = puzzleDrags.get(200).ghost;
     const firstTransform = ghost.style.transform;
     for (let dx = 9; dx <= 100; dx += 1) {
       fire(piece, "pointermove", { x: point.x + dx, y: point.y });
@@ -69,14 +73,14 @@
     await nextFrame();
     const transform = new DOMMatrixReadOnly(ghost.style.transform);
     check("next frame uses the newest pointer position",
-      Math.abs(transform.m41 - puzzleDrag.x) < 0.01 && Math.abs(transform.m42 - puzzleDrag.y) < 0.01);
-    const matchingSlot = puzzleBoard.querySelector(`[data-index="${piece.dataset.index}"]`);
+      Math.abs(transform.m41 - puzzleDrags.get(200).x) < 0.01 && Math.abs(transform.m42 - puzzleDrags.get(200).y) < 0.01);
+    const matchingSlot = puzzleBoard.querySelector(`.puzzle-slot[data-index="${piece.dataset.index}"]`);
     fire(piece, "pointercancel", center(matchingSlot));
     check("cancel over correct slot never places a piece or leaves work queued",
-      !piece.disabled && !puzzleDrag && puzzleDragFrame === null && !ghost.isConnected);
+      !piece.disabled && puzzleDrags.size === 0 && puzzleDragFrame === null && !ghost.isConnected);
     start(piece);
     piece.dispatchEvent(new PointerEvent("lostpointercapture", { bubbles: true, pointerId: 200 }));
-    check("lost capture cancels drag", !puzzleDrag && puzzleDragFrame === null);
+    check("lost capture cancels drag", puzzleDrags.size === 0 && puzzleDragFrame === null);
     start(piece);
     fire(piece, "pointerup", center(matchingSlot));
     check("correct release places piece", piece.disabled && matchingSlot.contains(piece));
@@ -91,17 +95,17 @@
     }
     check("repeated tab switches preserve placed and loose pieces without duplicates",
       puzzlePlaced === 1 && matchingSlot.contains(piece) && loosePiece.style.cssText === loosePosition
-      && puzzleScreen.querySelectorAll(".puzzle-piece").length === 9 && !puzzleDrag);
-    const completedAnimal = currentPuzzleAnimal;
+      && puzzleScreen.querySelectorAll(".puzzle-piece").length === 9 && puzzleDrags.size === 0);
+    const completedAnimal = currentPuzzle;
     for (const remaining of puzzleScreen.querySelectorAll(".puzzle-piece:not(:disabled)")) {
       start(remaining);
-      const slot = puzzleBoard.querySelector(`[data-index="${remaining.dataset.index}"]`);
+      const slot = puzzleBoard.querySelector(`.puzzle-slot[data-index="${remaining.dataset.index}"]`);
       fire(remaining, "pointerup", center(slot));
     }
     check("all nine releases complete the puzzle", puzzlePlaced === 9 && puzzleCompleting && !puzzleSuccess.hidden);
     await new Promise((resolve) => setTimeout(resolve, 4300));
     check("celebration advances to a fresh playable round",
-      !puzzleCompleting && puzzlePlaced === 0 && puzzleSuccess.hidden && currentPuzzleAnimal !== completedAnimal
+      !puzzleCompleting && puzzlePlaced === 0 && puzzleSuccess.hidden && currentPuzzle !== completedAnimal
       && puzzleTray.querySelectorAll(".puzzle-piece").length === 9);
 
     window.Audio = class FakeAudio {
@@ -124,6 +128,8 @@
         }
         ready() { this.events.onReady({ target: this }); }
         loadVideoById(id) { this.loaded.push(id); }
+        setLoop() {}
+        playVideo() {}
         stopVideo() {}
         destroy() { this.destroyed = true; this.iframe.remove(); }
       },
@@ -176,7 +182,7 @@
     showIdleDim();
     check("idle dim releases player and cached audio", idleDim.hidden === false && player === null && !voiceClips.size);
   } finally {
-    releaseSounds();
+    releaseMedia();
     cancelPuzzleDrag();
     Element.prototype.setPointerCapture = original.capture;
     Element.prototype.hasPointerCapture = original.hasCapture;
@@ -184,6 +190,8 @@
     recordInteraction = original.recordInteraction;
     loadYouTubeApi = original.loadYouTubeApi;
     playSuccessChime = original.playSuccessChime;
+    playSnapSound = original.playSnapSound;
+    speakAfter = original.speakAfter;
     window.Audio = original.Audio;
     window.YT = original.YT;
     window.SpeechSynthesisUtterance = original.Utterance;

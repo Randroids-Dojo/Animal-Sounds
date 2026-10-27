@@ -1,0 +1,30 @@
+<svg id="emoji" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+  <g id="color">
+    <circle cx="64" cy="20" r="2.4" fill="#92d3f5"/>
+    <circle cx="59" cy="12" r="1.8" fill="#92d3f5"/>
+    <circle cx="66" cy="7" r="1.4" fill="#92d3f5"/>
+    <path d="M17,36 L5,24 L5,48 Z" fill="#1e50a0"/>
+    <path d="M29,24 L35,13 L42,23 Z" fill="#1e50a0"/>
+    <path d="M30,48 L35,57 L41,49 Z" fill="#1e50a0"/>
+    <path d="M14,36 C22,19 50,17 62,36 C50,55 22,53 14,36 Z" fill="#61b2e4"/>
+    <circle cx="50" cy="32" r="5.5" fill="#fff"/>
+  </g>
+  <g id="line" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+    <circle cx="64" cy="20" r="2.4"/>
+    <circle cx="59" cy="12" r="1.8"/>
+    <circle cx="66" cy="7" r="1.4"/>
+    <path d="M16,34 L5,24 L5,48 L16,38"/>
+    <path d="M29,24 L35,13 L42,23"/>
+    <path d="M30,48 L35,57 L41,49"/>
+    <path d="M14,36 C22,19 50,17 62,36 C50,55 22,53 14,36 Z"/>
+    <path d="M26,25 C23,32 23,40 26,47"/>
+    <path d="M38,22 C35,30 35,42 38,50"/>
+    <circle cx="50" cy="32" r="5.5"/>
+    <circle cx="51" cy="32" r="2.4" fill="#000"/>
+    <line x1="55" y1="40" x2="59" y2="40"/>
+    <line x1="54" y1="43" x2="57" y2="43"/>
+    <circle cx="20" cy="36" r="0.9" fill="#000"/>
+    <circle cx="31" cy="36" r="0.9" fill="#000"/>
+    <circle cx="44" cy="44" r="0.9" fill="#000"/>
+  </g>
+</svg>

@@ -13,6 +13,10 @@
   <link rel="preload" href="fonts/fredoka.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
   <script defer src="touch-intent.js"></script>
+  <script defer src="alphabet.js"></script>
+  <script defer src="lessons.js"></script>
+  <script defer src="jigsaw.js"></script>
+  <script defer src="puzzle-deck.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body data-page="animals">
@@ -23,8 +27,12 @@
       <output id="daily-time-value">0:00:00</output>
     </div>
     <nav id="page-tabs" aria-label="Play pages">
-      <button type="button" data-page-target="animals" aria-pressed="true">🐾 Sounds</button>
-      <button type="button" data-page-target="puzzle" aria-pressed="false">🧩 Puzzle</button>
+      <button type="button" data-page-target="animals" aria-pressed="true">🐾 <span class="tab-label">Sounds</span></button>
+      <button type="button" data-page-target="dinosaurs" aria-pressed="false">🦕 <span class="tab-label">Dinosaurs</span></button>
+      <button type="button" data-page-target="foods" aria-pressed="false">🍅 <span class="tab-label">Foods</span></button>
+      <button type="button" data-page-target="alphabet" aria-pressed="false">🔤 <span class="tab-label">Alphabet</span></button>
+      <button type="button" data-page-target="lessons" aria-pressed="false">🌱 <span class="tab-label">Lessons</span></button>
+      <button type="button" data-page-target="puzzle" aria-pressed="false">🧩 <span class="tab-label">Puzzle</span></button>
     </nav>
   </header>
 
@@ -37,18 +45,101 @@
 
       <section id="puzzle-screen" class="app-screen" aria-label="Animal puzzle" hidden>
         <div class="puzzle-heading">
-          <p>Animal puzzle</p>
           <h2 id="puzzle-name">Find the pieces!</h2>
-          <span>Put each piece where it belongs.</span>
         </div>
         <section class="puzzle-section" aria-labelledby="puzzle-slots-label">
-          <h3 id="puzzle-slots-label">Empty spots</h3>
+          <h3 id="puzzle-slots-label" class="visually-hidden">Empty spots</h3>
           <div id="puzzle-board" aria-label="Empty puzzle spots"></div>
         </section>
         <section class="puzzle-section" aria-labelledby="puzzle-pieces-label">
-          <h3 id="puzzle-pieces-label">Mixed-up pieces</h3>
+          <h3 id="puzzle-pieces-label" class="visually-hidden">Mixed-up pieces</h3>
           <div id="puzzle-tray" aria-label="Mixed-up puzzle pieces"></div>
         </section>
+        <!-- Shared by every piece, drag ghost, and the board's faint guide.
+             app.js fills #puzzle-cuts with this round's piece shapes. -->
+        <svg id="puzzle-defs" width="0" height="0" aria-hidden="true" focusable="false">
+          <defs>
+            <!-- One backdrop per kind of picture, each 300 units square (three
+                 cells) plus a margin for the bleed. Corners differ, so corner
+                 pieces have something of their own. -->
+            <linearGradient id="puzzle-sky-animal" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#BFE6F6"/>
+              <stop offset="0.7" stop-color="#F2F9F1"/>
+            </linearGradient>
+            <g id="puzzle-scene-animal">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-animal)"/>
+              <path d="M-10 224 L 0 222 C 70 204 130 200 190 210 S 270 214 300 206 L 310 205 V 310 H -10 Z" fill="#B9E2A8"/>
+            </g>
+            <linearGradient id="puzzle-sky-dinosaur" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#FFD7A3"/>
+              <stop offset="0.6" stop-color="#FFF3DE"/>
+            </linearGradient>
+            <g id="puzzle-scene-dinosaur">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-dinosaur)"/>
+              <circle cx="246" cy="52" r="24" fill="#FFE68F"/>
+              <g fill="#ECE3E6">
+                <circle cx="76" cy="76" r="11"/><circle cx="92" cy="64" r="14"/><circle cx="112" cy="58" r="12"/>
+                <circle cx="130" cy="50" r="9"/><circle cx="100" cy="52" r="10"/>
+              </g>
+              <path d="M-10 182 L 52 92 H 92 L 168 182 Z" fill="#C9AFC4"/>
+              <path d="M52 92 H 92 L 84 104 L 75 98 L 66 106 L 58 99 Z" fill="#F08A4B"/>
+              <path d="M-10 182 C 60 170 140 174 200 178 S 280 172 310 176 V 310 H -10 Z" fill="#D3E5A4"/>
+              <path d="M-10 262 C 80 250 200 256 310 246 V 310 H -10 Z" fill="#BCD78E"/>
+              <g fill="#8DBF6A">
+                <ellipse cx="14" cy="270" rx="26" ry="7" transform="rotate(-35 14 270)"/>
+                <ellipse cx="22" cy="282" rx="28" ry="7" transform="rotate(-10 22 282)"/>
+                <ellipse cx="290" cy="268" rx="26" ry="7" transform="rotate(35 290 268)"/>
+                <ellipse cx="282" cy="282" rx="28" ry="7" transform="rotate(10 282 282)"/>
+              </g>
+            </g>
+            <linearGradient id="puzzle-sky-robot" x1="0" y1="0" x2="0" y2="300" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#C9CFF5"/>
+              <stop offset="0.72" stop-color="#EEF0FF"/>
+            </linearGradient>
+            <g id="puzzle-scene-robot">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-robot)"/>
+              <circle cx="52" cy="58" r="22" fill="#F7C6A3"/>
+              <ellipse cx="52" cy="58" rx="38" ry="9" fill="none" stroke="#E59B7A" stroke-width="5" transform="rotate(-14 52 58)"/>
+              <g fill="#FFFBE0">
+                <path d="M120 30 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3 l8 -3 Z"/>
+                <path d="M262 26 l2.5 6 l6 2.5 l-6 2.5 l-2.5 6 l-2.5 -6 l-6 -2.5 l6 -2.5 Z"/>
+                <path d="M212 96 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 Z"/>
+                <path d="M30 140 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 Z"/>
+                <path d="M282 150 l2.5 6 l6 2.5 l-6 2.5 l-2.5 6 l-2.5 -6 l-6 -2.5 l6 -2.5 Z"/>
+              </g>
+              <path d="M-10 230 C 70 220 150 226 220 222 S 290 218 310 224 V 310 H -10 Z" fill="#D9D9E6"/>
+              <g fill="#C2C2D4">
+                <ellipse cx="44" cy="270" rx="18" ry="5"/>
+                <ellipse cx="186" cy="290" rx="24" ry="6"/>
+                <ellipse cx="262" cy="250" rx="11" ry="3.5"/>
+              </g>
+            </g>
+            <linearGradient id="puzzle-sky-food" x1="0" y1="0" x2="0" y2="180" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#CDEBFA"/>
+              <stop offset="1" stop-color="#FFF7E6"/>
+            </linearGradient>
+            <pattern id="puzzle-gingham" width="30" height="30" patternUnits="userSpaceOnUse">
+              <rect width="30" height="30" fill="#FFFDF8"/>
+              <rect width="15" height="30" fill="#F4B4AE" fill-opacity="0.55"/>
+              <rect width="30" height="15" fill="#F4B4AE" fill-opacity="0.55"/>
+            </pattern>
+            <g id="puzzle-scene-food">
+              <rect x="-10" y="-10" width="320" height="320" fill="url(#puzzle-sky-food)"/>
+              <g fill="#FFFFFF">
+                <circle cx="40" cy="44" r="15"/><circle cx="60" cy="38" r="19"/><circle cx="82" cy="46" r="13"/>
+                <circle cx="236" cy="70" r="12"/><circle cx="254" cy="62" r="16"/><circle cx="272" cy="72" r="11"/>
+              </g>
+              <rect x="-10" y="176" width="320" height="134" fill="url(#puzzle-gingham)"/>
+              <rect x="-10" y="174" width="320" height="5" fill="#E58C84"/>
+              <ellipse cx="150" cy="248" rx="124" ry="32" fill="#FFFFFF" stroke="#DADADA" stroke-width="2"/>
+              <ellipse cx="150" cy="246" rx="94" ry="21" fill="#F4F4F4"/>
+            </g>
+            <filter id="puzzle-hue" color-interpolation-filters="sRGB">
+              <feColorMatrix id="puzzle-hue-rotate" type="hueRotate" values="0"/>
+            </filter>
+          </defs>
+          <defs id="puzzle-cuts"></defs>
+        </svg>
         <div id="puzzle-success" aria-live="assertive" hidden>
           <strong class="success-message">You did it!</strong>
           <span class="success-star" aria-hidden="true">★</span>
@@ -62,7 +153,29 @@
           <span class="success-particle" aria-hidden="true"></span>
         </div>
       </section>
+      <section id="dinosaur-screen" class="app-screen" aria-label="Dinosaur names" hidden inert>
+        <p class="dinosaur-hint">Tap a dinosaur to hear its name.</p>
+        <div id="dinosaur-grid" aria-label="Dinosaurs"></div>
+        <details class="dinosaur-credits"><summary>Dinosaur artwork credits</summary><p>Illustrations from Wikimedia Commons, resized for display.</p><ul><li><a href="https://commons.wikimedia.org/wiki/File:Tyrannosaurus-rex-Profile-steveoc86_(coloured).png">Tyrannosaurus-rex-Profile-steveoc86 (coloured)</a> by Steveoc 86 · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Triceratops_by_Tom_Patker.png">Triceratops by Tom Patker</a> by Tomopteryx · <a href="https://creativecommons.org/licenses/by-sa/3.0">CC BY-SA 3.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Stegosaurus_stenops_Life_Reconstruction.png">Stegosaurus stenops Life Reconstruction</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Brachiosaurus_NT_new.jpg">Brachiosaurus NT new</a> by Nobu Tamura · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Brontosaurus_NT_small.jpg">Brontosaurus NT small</a> by Nobu Tamura email:nobu.tamura@yahoo.com  http://spinops.blogspot.com/ · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Diplodocus_carnegii.jpg">Diplodocus carnegii</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Velociraptor_Restoration.png">Velociraptor Restoration</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Spinosaurus_aegyptiacus_by_PaleoGeek.png">Spinosaurus aegyptiacus by PaleoGeek</a> by PaleoGeekSquared · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Ankylosaurus_magniventris_reconstruction.png">Ankylosaurus magniventris reconstruction</a> by Emily Willoughby (e.deinonychus@gmail.com, http://emilywilloughby.com) · <a href="https://creativecommons.org/licenses/by-sa/3.0">CC BY-SA 3.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Life_reconstruction_of_Parasaurolophus_walkeri.png">Life reconstruction of Parasaurolophus walkeri</a> by Connor Ashbridge · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Allosaurus_Revised.jpg">Allosaurus Revised</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Pachycephalosaurus_Reconstruction.jpg">Pachycephalosaurus Reconstruction</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Iguanodon_bernissartensis_(Davide_Bonadonna,_cropped).png">Iguanodon bernissartensis (Davide Bonadonna, cropped)</a> by Davide Bonadonna · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Carnotaurus_Reconstruction_(2022).png">Carnotaurus Reconstruction (2022)</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Life_reconstruction_of_Dilophosaurus_wetherilli.png">Life reconstruction of Dilophosaurus wetherilli</a> by Connor Ashbridge · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Therizinosaurus_Restoration.png">Therizinosaurus Restoration</a> by PaleoNeolitic · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Amargasaurus_Reconstruction_Fred_Wierum.png">Amargasaurus Reconstruction Fred Wierum</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Gallimimus_Restoration.png">Gallimimus Restoration</a> by PaleoNeolitic · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Microraptor_Restoration.png">Microraptor Restoration</a> by Fred Wierum · <a href="https://creativecommons.org/licenses/by-sa/4.0">CC BY-SA 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Psittacosaurus_mongoliensis_whole_BW.jpg">Psittacosaurus mongoliensis whole BW</a> by Nobu Tamura (http://spinops.blogspot.com) · <a href="https://creativecommons.org/licenses/by/3.0">CC BY 3.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Deinocheirus_Restoration.png">Deinocheirus Restoration</a> by PaleoNeolitic · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Oviraptor_Restoration.png">Oviraptor Restoration</a> by PaleoNeolitic · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Styracosaurus_albertensis.png">Styracosaurus albertensis</a> by Connor Ashbridge · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Protoceratops_andrewsi_Restoration.png">Protoceratops andrewsi Restoration</a> by PaleoNeolitic · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Ouranosaurus_nigeriensis.png">Ouranosaurus nigeriensis</a> by Connor Ashbridge · <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a></li><li><a href="https://commons.wikimedia.org/wiki/File:Concavenator_corcovatus_by_Daniel_Vidal_2012.png">Concavenator corcovatus by Daniel Vidal 2012</a> by Eoalulavis · <a href="https://creativecommons.org/licenses/by-sa/3.0">CC BY-SA 3.0</a></li></ul></details>
+      </section>
+      <section id="food-screen" class="app-screen" aria-label="Food names" hidden inert>
+        <p class="dinosaur-hint">Tap a food to hear its name.</p>
+        <div id="food-grid" aria-label="Foods"></div>
+        <p class="credits">Food art: OpenMoji.org (CC BY-SA 4.0)</p>
+      </section>
+      <section id="alphabet-screen" class="app-screen" aria-label="Alphabet" hidden inert>
+        <p class="dinosaur-hint">Tap a letter. Hear its name. Discover something new!</p>
+        <div id="alphabet-grid" aria-label="Alphabet cards"></div>
+        <p class="credits">Art: OpenMoji.org (CC BY-SA 4.0) and original illustrations.</p>
+      </section>
+      <section id="lessons-screen" class="app-screen" aria-label="Lessons" hidden inert>
+        <div id="lesson-grid" aria-label="Choose a lesson"></div>
+      </section>
     </div>
+  </div>
+
+  <div id="safe-area" aria-hidden="true">
+    <div></div><div></div><div></div><div></div>
   </div>
 
   <div id="overlay" hidden>
