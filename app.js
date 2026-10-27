@@ -4,6 +4,9 @@
 // CSS transition in init() so the visual fill always matches the trigger.
 const HOLD_MS = 1200;
 const TAP_SLOP_PX = 12;
+// Drag intent needs only a small deliberate move, not the larger tolerance
+// used to distinguish a tap from scrolling the Sounds grid.
+const DRAG_SLOP_PX = 4;
 const TAP_MAX_MS = 700;
 const TAP_ARBITRATION_MS = 90;
 // CSS-pixel contact geometry is optional. These deliberately conservative
@@ -40,13 +43,15 @@ const puzzleTray = document.getElementById("puzzle-tray");
 const puzzleScreen = document.getElementById("puzzle-screen");
 const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
-const pages = document.getElementById("pages");
+const animalScreen = document.getElementById("animal-screen");
 const pageTabs = document.querySelectorAll("[data-page-target]");
 
-// One YT.Player for the app's lifetime: created lazily on the first tap,
-// then reused via loadVideoById — recreating it per tap costs seconds on
-// the tablet. "A video is open" is tracked by overlay.hidden alone.
+// Reuse the player for consecutive Sounds taps, but destroy its iframe when
+// leaving Sounds: a stopped YouTube page still retains scripts and buffers.
 let player = null;
+let playerReady = false;
+let pendingVideoId = null;
+let playbackRequest = 0;
 let watchdog = null;
 
 function localDay(now = new Date()) {
@@ -81,6 +86,7 @@ let lastInteractionAt = Date.now();
 let currentPuzzleAnimal = null;
 let puzzlePlaced = 0;
 let puzzleDrag = null;
+let puzzleDragFrame = null;
 const puzzleDragCandidates = new Map();
 const tileTapCandidates = new Map();
 let pendingTileTaps = [];
@@ -121,6 +127,8 @@ function showIdleDim(now = Date.now()) {
   stopCounting(now);
   cancelTileTaps();
   cancelPuzzleDrag();
+  releaseSounds();
+  audioContext?.suspend();
   idleDim.hidden = false;
 }
 
@@ -137,9 +145,8 @@ function wakeIdleScreen(now = Date.now()) {
 }
 
 function stopPlaybackForLimit() {
-  if (currentClip) currentClip.pause();
-  try { speechSynthesis.cancel(); } catch (_) {}
-  closePlayer();
+  releaseSounds();
+  audioContext?.suspend();
 }
 
 function formatRemaining(ms) {
@@ -153,8 +160,8 @@ function renderDailyTime(now = Date.now()) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  dailyTimeValue.value = `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  dailyTimeValue.textContent = dailyTimeValue.value;
+  const value = `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  if (dailyTimeValue.value !== value) dailyTimeValue.value = value;
 }
 
 function showLimit(now = Date.now()) {
@@ -229,18 +236,19 @@ const apiReady = new Promise((resolve) => {
 });
 
 function loadYouTubeApi() {
+  if (document.getElementById("youtube-api")) return;
   const tag = document.createElement("script");
+  tag.id = "youtube-api";
   tag.src = "https://www.youtube.com/iframe_api";
   document.head.appendChild(tag);
 }
 
 async function init() {
-  loadYouTubeApi();
   closeBtn.style.transitionDuration = HOLD_MS + "ms";
   const res = await fetch("animals.json");
   animals = await res.json();
   renderGrid();
-  newPuzzle();
+  showPage(document.body.dataset.page);
   showIdleDim();
   updateScreenTime();
   renderDailyTime();
@@ -329,6 +337,8 @@ function renderGrid() {
     tile.type = "button";
 
     const img = document.createElement("img");
+    img.loading = "lazy";
+    img.decoding = "async";
     img.src = animal.image;
     img.alt = "";
     img.style.filter = hueFilter(animal);
@@ -400,11 +410,13 @@ function removeAllDragGhosts() {
 
 function cancelPuzzleDrag() {
   puzzleDragCandidates.clear();
+  cancelAnimationFrame(puzzleDragFrame);
+  puzzleDragFrame = null;
   if (puzzleDrag) {
     const { piece, pointerId } = puzzleDrag;
+    puzzleDrag = null;
     if (piece.hasPointerCapture(pointerId)) piece.releasePointerCapture(pointerId);
     resetDraggedPiece(piece);
-    puzzleDrag = null;
   }
   removeAllDragGhosts();
 }
@@ -459,7 +471,7 @@ function movePuzzlePiece(event) {
     const candidate = puzzleDragCandidates.get(event.pointerId);
     if (!candidate) return;
     TouchIntent.updateCandidate(candidate, event);
-    if (candidate.maxDistance <= TAP_SLOP_PX) return;
+    if (candidate.maxDistance <= DRAG_SLOP_PX) return;
     if (TouchIntent.looksLikeBroadContact(candidate, touchLimits)) {
       puzzleDragCandidates.delete(event.pointerId);
       return;
@@ -467,13 +479,23 @@ function movePuzzlePiece(event) {
     claimPuzzleDrag(candidate, event);
   }
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
-  const { ghost, offsetX, offsetY, startX, startY } = puzzleDrag;
-  if (!puzzleDrag.moved && Math.hypot(event.clientX - startX, event.clientY - startY) > TAP_SLOP_PX) {
+  const { startX, startY } = puzzleDrag;
+  if (!puzzleDrag.moved && Math.hypot(event.clientX - startX, event.clientY - startY) > DRAG_SLOP_PX) {
     puzzleDrag.moved = true;
     recordInteraction();
   }
-  ghost.style.left = `${event.clientX - offsetX}px`;
-  ghost.style.top = `${event.clientY - offsetY}px`;
+  puzzleDrag.x = event.clientX - puzzleDrag.offsetX;
+  puzzleDrag.y = event.clientY - puzzleDrag.offsetY;
+  // Pointer streams can outpace the display. Keep only the newest position
+  // and update the compositor once per frame, without invalidating layout.
+  if (puzzleDragFrame === null) puzzleDragFrame = requestAnimationFrame(paintPuzzleDrag);
+}
+
+function paintPuzzleDrag() {
+  puzzleDragFrame = null;
+  if (!puzzleDrag) return;
+  const { ghost, x, y } = puzzleDrag;
+  ghost.style.transform = `translate3d(${x}px, ${y}px, 0) scale(1.08) rotate(3deg)`;
 }
 
 function endPuzzleDrag(event) {
@@ -481,11 +503,13 @@ function endPuzzleDrag(event) {
   if (!puzzleDrag || event.pointerId !== puzzleDrag.pointerId) return;
   const { piece, ghost, offsetX, offsetY } = puzzleDrag;
   puzzleDrag = null;
+  cancelAnimationFrame(puzzleDragFrame);
+  puzzleDragFrame = null;
   if (piece.hasPointerCapture(event.pointerId)) piece.releasePointerCapture(event.pointerId);
   const target = document.elementFromPoint(event.clientX, event.clientY);
   const slot = target?.closest(".puzzle-slot");
   removeDragGhost(ghost);
-  if (slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
+  if (event.type === "pointerup" && slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
     placePuzzlePiece(piece, slot);
   } else if (event.type === "pointerup") {
     leavePuzzlePiece(piece, event, offsetX, offsetY);
@@ -508,7 +532,6 @@ function claimPuzzleDrag(candidate, event) {
   ghost.style.removeProperty("top");
   ghost.style.width = `${rect.width}px`;
   ghost.style.height = `${rect.height}px`;
-  document.body.append(ghost);
   puzzleDrag = {
     piece,
     ghost,
@@ -518,7 +541,12 @@ function claimPuzzleDrag(candidate, event) {
     offsetX: candidate.startX - rect.left,
     offsetY: candidate.startY - rect.top,
     moved: event.pointerType === "touch",
+    x: event.clientX - (candidate.startX - rect.left),
+    y: event.clientY - (candidate.startY - rect.top),
   };
+  // Position before insertion, so the first frame never flashes at (0, 0).
+  paintPuzzleDrag();
+  document.body.append(ghost);
   piece.setPointerCapture(event.pointerId);
   piece.classList.add("drag-source");
   piece.setAttribute("aria-grabbed", "true");
@@ -528,6 +556,7 @@ function claimPuzzleDrag(candidate, event) {
 
 function beginPuzzleDrag(event) {
   if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
+  if (event.button !== 0 || document.body.dataset.page !== "puzzle" || !idleDim.hidden || !timeLimit.hidden) return;
   const piece = event.currentTarget;
   if (piece.disabled || puzzleCompleting) return;
   event.preventDefault();
@@ -599,51 +628,107 @@ function playSuccessChime() {
 }
 
 function showPage(page) {
+  if (page !== "animals" && page !== "puzzle") return;
   cancelTileTaps();
-  if (page !== "puzzle") cancelPuzzleDrag();
+  cancelPuzzleDrag();
   document.body.dataset.page = page;
-  positionPages();
+  animalScreen.hidden = page !== "animals";
+  puzzleScreen.hidden = page !== "puzzle";
+  if (page === "puzzle") {
+    releaseSounds();
+    if (animals.length && (!currentPuzzleAnimal || puzzleCompleting)) newPuzzle();
+  } else {
+    clearTimeout(puzzleSuccessTimer);
+    puzzleScreen.classList.remove("puzzle-complete");
+    puzzleSuccess.classList.remove("playing");
+    puzzleSuccess.hidden = true;
+    audioContext?.suspend();
+  }
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
   });
 }
 
-function positionPages() {
-  const offset = document.body.dataset.page === "puzzle" ? -window.innerWidth : 0;
-  pages.style.transform = `translateX(${offset}px)`;
-}
-
 // Recordings of Randy saying each animal's name, e.g. audio/guinea-pig.mp3,
-// cached so repeat taps replay instantly.
+// kept in a small LRU cache so a long kiosk session cannot retain every clip.
+const VOICE_CACHE_LIMIT = 4;
 const voiceClips = new Map();
 let currentClip = null;
+let currentUtterance = null;
+
+function stopFallbackSpeech() {
+  // Do not initialize Android's speech service on startup or on puzzle taps
+  // when all names have been played from recordings.
+  if (!currentUtterance) return;
+  currentUtterance = null;
+  try { speechSynthesis.cancel(); } catch (_) {}
+}
+
+function releaseClip(clip) {
+  clip.pause();
+  clip.removeAttribute("src");
+  clip.load();
+}
+
+function releaseSounds() {
+  closePlayer();
+  const oldPlayer = player;
+  player = null;
+  playerReady = false;
+  pendingVideoId = null;
+  try { oldPlayer?.destroy(); } catch (_) {}
+  if (document.getElementById("yt-slot")?.tagName !== "DIV") {
+    const slot = document.createElement("div");
+    slot.id = "yt-slot";
+    document.querySelector(".player-frame").replaceChildren(slot);
+  }
+  currentClip = null;
+  voiceClips.forEach(releaseClip);
+  voiceClips.clear();
+}
 
 function speak(name) {
+  stopFallbackSpeech();
   const slug = name.toLowerCase().replace(/\s+/g, "-");
   let clip = voiceClips.get(slug);
   if (!clip) {
     clip = new Audio(`audio/${slug}.mp3`);
-    voiceClips.set(slug, clip);
   }
   if (currentClip) currentClip.pause();
+  voiceClips.delete(slug);
+  voiceClips.set(slug, clip);
+  if (voiceClips.size > VOICE_CACHE_LIMIT) {
+    const [oldestSlug, oldestClip] = voiceClips.entries().next().value;
+    voiceClips.delete(oldestSlug);
+    releaseClip(oldestClip);
+  }
   currentClip = clip;
   clip.currentTime = 0;
-  clip.play()?.catch(() => speakFallback(name));
+  clip.play()?.catch(() => {
+    if (currentClip === clip && !overlay.hidden) speakFallback(name);
+  });
 }
 
 function speakFallback(name) {
   try {
-    speechSynthesis.cancel();
+    stopFallbackSpeech();
     const utterance = new SpeechSynthesisUtterance(name);
     utterance.rate = 0.9;
+    currentUtterance = utterance;
+    utterance.onend = utterance.onerror = () => {
+      if (currentUtterance === utterance) currentUtterance = null;
+    };
     speechSynthesis.speak(utterance);
   } catch (_) {
+    currentUtterance = null;
     // Speech is a nice-to-have; some WebViews lack it.
   }
 }
 
 async function play(animal) {
-  if (!overlay.hidden) return;
+  if (!overlay.hidden || document.body.dataset.page !== "animals" || !timeLimit.hidden || !idleDim.hidden) return;
+  const request = ++playbackRequest;
+  pendingVideoId = animal.videoId;
 
   loadingImg.src = animal.image;
   loadingImg.style.filter = hueFilter(animal);
@@ -657,11 +742,12 @@ async function play(animal) {
   // endless ad weirdness), bail back to the grid.
   armWatchdog(20000);
 
+  loadYouTubeApi();
   await apiReady;
-  if (overlay.hidden) return; // closed while the API was still loading
+  if (request !== playbackRequest || overlay.hidden) return;
 
   if (player) {
-    player.loadVideoById(animal.videoId);
+    if (playerReady) player.loadVideoById(pendingVideoId);
     return;
   }
 
@@ -677,8 +763,20 @@ async function play(animal) {
       iv_load_policy: 3,
     },
     events: {
-      onReady: (e) => e.target.playVideo(),
+      onReady: (e) => {
+        if (player !== e.target) {
+          try { e.target.stopVideo(); } catch (_) {}
+          return;
+        }
+        playerReady = true;
+        if (overlay.hidden) {
+          try { e.target.stopVideo(); } catch (_) {}
+          return;
+        }
+        e.target.loadVideoById(pendingVideoId);
+      },
       onStateChange: (e) => {
+        if (player !== e.target) return;
         if (e.data === YT.PlayerState.PLAYING) {
           if (overlay.hidden) {
             // Closed before the first player finished initializing.
@@ -688,12 +786,12 @@ async function play(animal) {
           clearTimeout(watchdog);
           loading.hidden = true;
         } else if (e.data === YT.PlayerState.BUFFERING) {
-          armWatchdog(30000); // making progress — allow a slow network more time
+          if (!overlay.hidden) armWatchdog(30000); // allow a slow network more time
         } else if (e.data === YT.PlayerState.ENDED) {
           if (!overlay.hidden) closePlayer();
         }
       },
-      onError: () => closePlayer(),
+      onError: (e) => { if (player === e.target) closePlayer(); },
     },
   });
 }
@@ -704,11 +802,15 @@ function armWatchdog(ms) {
 }
 
 function closePlayer() {
+  playbackRequest += 1;
   clearTimeout(watchdog);
-  if (player) {
+  if (player && !overlay.hidden) {
     try { player.stopVideo(); } catch (_) { /* not ready yet */ }
   }
   overlay.hidden = true;
+  loading.hidden = true;
+  if (currentClip) currentClip.pause();
+  stopFallbackSpeech();
 }
 
 // Parent escape hatch: the ✕ only works when held for HOLD_MS,
@@ -759,9 +861,18 @@ document.addEventListener("pointercancel", (event) => {
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });
-window.addEventListener("resize", positionPages);
+document.addEventListener("lostpointercapture", (event) => {
+  if (puzzleDrag?.pointerId === event.pointerId) cancelPuzzleDrag();
+}, { capture: true });
+window.addEventListener("resize", cancelPuzzleDrag);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) stopCounting();
+  if (document.hidden) {
+    stopCounting();
+    cancelTileTaps();
+    cancelPuzzleDrag();
+    releaseSounds();
+    audioContext?.suspend();
+  }
   else if (timeLimit.hidden) showIdleDim();
 });
 

@@ -42,6 +42,7 @@
   }
 
   try {
+    showPage("animals");
     play = (animal) => window.__playedAnimals.push(animal.name);
     const horse = grid.querySelectorAll(".tile")[0];
     const rabbit = grid.querySelectorAll(".tile")[1];

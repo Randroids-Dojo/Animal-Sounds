@@ -63,16 +63,19 @@ body::after {
   opacity: 0.55;
 }
 
-/* ---------- Swipeable play pages ---------- */
+/* ---------- Play pages ---------- */
 
 #page-viewport {
   overflow: hidden;
 }
 
 #pages {
-  display: flex;
-  width: 200vw;
+  width: 100%;
 }
+
+/* Offscreen transforms keep both pages laid out and rasterized. Hidden
+   pages retain their small game state but have no render tree or hit targets. */
+.app-screen[hidden] { display: none; }
 
 /* The puzzle is a fixed play surface: no browser pan, pinch, or page scroll
    can steal a piece from the finger that is moving it. */
@@ -89,12 +92,10 @@ body[data-page="puzzle"] #page-viewport {
 
 body[data-page="puzzle"] #pages {
   height: 100%;
-  transform: translateX(-50%);
 }
 
 .app-screen {
-  width: 100vw;
-  flex: 0 0 100vw;
+  width: 100%;
   min-width: 0;
 }
 
@@ -219,6 +220,9 @@ body[data-page="puzzle"] #pages {
 /* ---------- Animal puzzle ---------- */
 
 #puzzle-screen {
+  /* Reserve room for the header, instructions, section labels and padding;
+     otherwise the last row is clipped in the tablet's landscape viewport. */
+  --puzzle-size: min(80vw, 360px, calc((100dvh - 320px) / 2));
   position: relative;
   height: 100%;
   min-height: 0;
@@ -258,12 +262,12 @@ body[data-page="puzzle"] #pages {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 5px;
-  width: min(80vw, 360px, calc((100dvh - 250px) / 2));
+  width: var(--puzzle-size);
   margin-inline: auto;
 }
 
 .puzzle-section > h3 {
-  width: min(80vw, 360px, calc((100dvh - 250px) / 2));
+  width: var(--puzzle-size);
   margin: 10px auto 5px;
   color: #635A91;
   font-size: 0.76rem;
@@ -291,13 +295,14 @@ body[data-page="puzzle"] #pages {
   display: grid;
   place-items: center;
   overflow: hidden;
-  border: 3px dashed rgba(59, 53, 96, 0.25);
-  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.38);
+  border: 5px solid var(--ink);
+  box-shadow: inset 0 0 0 3px var(--cream);
 }
 
 .puzzle-slot.filled {
-  border-style: solid;
+  border-width: 3px;
   border-color: rgba(59, 53, 96, 0.12);
+  box-shadow: none;
 }
 
 #puzzle-tray {
@@ -331,12 +336,14 @@ body[data-page="puzzle"] #pages {
 
 .puzzle-piece.dragging {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 30;
   margin: 0;
   pointer-events: none;
   cursor: grabbing;
   opacity: 0.94;
-  transform: scale(1.08) rotate(3deg);
+  will-change: transform;
   box-shadow: 0 12px 20px rgba(20, 18, 39, 0.28);
 }
 

@@ -21,7 +21,8 @@ The videos come from this YouTube playlist:
   large **Sounds** tab to return. Swipe navigation is deliberately disabled so
   dragging a puzzle piece cannot accidentally change pages.
   Each round has two clear sections: nine mixed-up animal-image pieces and
-  nine empty outlined slots. Place each piece in its matching slot. A star,
+  nine empty slots with bold, solid outlines. Filled slots have softer borders
+  so the remaining spaces stand out. Place each piece in its matching slot. A star,
   particles, and chime celebrate a completed puzzle before a new randomized
   round appears. The puzzle stays fixed in the viewport; it does not scroll,
   and a piece keeps tracking its own finger even if another touch rests on the
@@ -38,6 +39,17 @@ The videos come from this YouTube playlist:
 - Playback uses the official YouTube IFrame API. An invisible "tap shield"
   covers the video so little fingers can't pause it, open related videos, or
   click through to YouTube.
+- The inactive play page is removed from layout and painting while its small
+  DOM/game state is preserved, so switching tabs keeps unfinished puzzles.
+  The first puzzle is built only when opened. Puzzle dragging starts after
+  4 CSS pixels of movement (stationary contacts still cannot claim a piece),
+  then follows the latest pointer position using one compositor transform per
+  animation frame, without changing layout on every move.
+- YouTube is loaded only on the first animal tap. Consecutive Sounds taps
+  reuse the player; opening Puzzle, dimming for idle, reaching a screen-time
+  limit, or hiding the browser destroys its iframe and releases voice clips.
+  The voice cache holds at most four clips while Sounds is active. Tile art
+  loads lazily and decodes asynchronously.
 - The video auto-returns to the grid when it ends, errors, or never starts
   (watchdog timeout).
 - Parent escape hatch: **hold the ✕ in the top-right corner for about 1.2
@@ -200,6 +212,29 @@ python3 -m http.server 8642
 ```
 
 Deploy: `vercel --prod` (static site, no configuration needed).
+
+### Input and kiosk regression checks
+
+Run `node --test tests/touch-intent.test.js` for the touch-intent helpers.
+With the local site running, reload it and run the following in the browser
+console (the first suite expects a fresh page):
+
+```js
+for (const file of ["browser-kiosk-performance", "browser-touch-intent"]) {
+  const result = await (0, eval)(await (await fetch(`tests/${file}.js`)).text());
+  console.table(result.results);
+  console.assert(result.passed, `${file} failed`);
+}
+location.reload(); // restore real media APIs after the test doubles
+```
+
+These check drag scheduling/cancellation, palm rejection, puzzle persistence,
+bounded audio caching, and player startup/teardown races. They use synthetic
+events and fake media; they do not establish physical-tablet latency or real
+YouTube playback. Also check on the Tab A7 Lite in FreeKiosk: cold startup,
+tab switching, a short drag with another finger resting on the screen, and
+dragging again after returning from a video. Desktop CPU throttling is useful
+for regression checks but cannot replace that device check.
 
 ## Credits
 
