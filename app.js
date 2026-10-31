@@ -60,7 +60,6 @@ const puzzleName = document.getElementById("puzzle-name");
 const puzzleSuccess = document.getElementById("puzzle-success");
 const puzzleCuts = document.getElementById("puzzle-cuts");
 const puzzleHueRotate = document.getElementById("puzzle-hue-rotate");
-const pages = document.getElementById("pages");
 const pageTabs = document.querySelectorAll("[data-page-target]");
 const PAGE_SCREENS = { animals: "animal-screen", puzzle: "puzzle-screen", dinosaurs: "dinosaur-screen", foods: "food-screen", alphabet: "alphabet-screen", lessons: "lessons-screen" };
 let playViewport = { width: 0, height: 0, rotation: 0 };
