@@ -421,7 +421,7 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   flex: none;
 }
 
-.puzzle-piece svg {
+.puzzle-piece > svg {
   display: block;
   width: 100%;
   height: 100%;
@@ -458,8 +458,28 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   z-index: 30;
   cursor: grabbing;
   opacity: 0.96;
-  filter: drop-shadow(0 12px 10px rgba(20, 18, 39, 0.3));
+  filter: none;
   will-change: transform;
+}
+
+/* The lifted shadow belongs to the art, not the moving layer, so it is drawn
+   once with the piece instead of by the compositor on every frame. */
+.puzzle-piece.dragging > svg {
+  filter: drop-shadow(0 12px 10px rgba(20, 18, 39, 0.3));
+}
+
+/* A seated piece's carried copy, sliding the rest of the way into its spot
+   while the seated piece waits hidden under it. */
+.puzzle-piece.sliding {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  will-change: transform;
+}
+
+.puzzle-piece.arriving {
+  visibility: hidden;
 }
 
 .puzzle-piece.dragging .piece-hit,

@@ -27,6 +27,8 @@ const PUZZLE_SNAP_MS = 170;
 const PUZZLE_NAME_DELAY_MS = 700;
 // Picking up and putting down a loose piece, which lies smaller in the tray.
 const PUZZLE_RESIZE_MS = 140;
+// A carried piece is drawn this much larger than its spot, as if lifted.
+const PUZZLE_LIFT_SCALE = 1.06;
 // Space between the board and the screen's sides.
 const PUZZLE_MARGIN = 8;
 // The smallest loose piece the board gives up width for; a toddler's fingertip.
@@ -107,6 +109,8 @@ let puzzlePlaced = 0;
 // Active drags keyed by pointer ID, so each finger can carry its own piece.
 const puzzleDrags = new Map();
 let puzzleDragFrame = null;
+// Carried copies still sliding into their spots, each with its landing step.
+const puzzleSlides = new Set();
 const puzzleDragCandidates = new Map();
 const tileTapCandidates = new Map();
 let pendingTileTaps = [];
@@ -559,15 +563,23 @@ function puzzleTitle(item) {
 }
 
 // Each piece shows only its own cut of the picture, so placed neighbors
-// continue the image across their shared knobs.
+// continue the image across their shared knobs. The picture sits in a
+// viewport the size of the piece's box. Without it, Chrome counts the whole
+// masked picture as the piece's painted area: a carried piece became a layer
+// wider than the screen that was redrawn as it moved, and every seated piece
+// repainted most of the screen. The outline and the fingertip margin stay
+// outside the viewport, so neither is clipped at a knob's tip.
 function puzzlePieceArt(item, index, shape) {
   const { x, y, size } = Jigsaw.pieceBox(index % PUZZLE_GRID_SIZE, Math.floor(index / PUZZLE_GRID_SIZE));
-  const art = svgElement("svg", { viewBox: `${x} ${y} ${size} ${size}`, "aria-hidden": "true" });
+  const viewBox = `${x} ${y} ${size} ${size}`;
+  const art = svgElement("svg", { viewBox, "aria-hidden": "true" });
+  const frame = svgElement("svg", { class: "piece-frame", x, y, width: size, height: size, viewBox });
   const picture = puzzlePicture(item);
   picture.setAttribute("mask", `url(#puzzle-cut-${index})`);
+  frame.append(picture);
   art.append(
     svgElement("path", { class: "piece-hit", d: shape }),
-    picture,
+    frame,
     svgElement("path", { class: "piece-edge", d: shape }),
   );
   return art;
@@ -610,6 +622,7 @@ function cancelPuzzleDrag() {
   puzzleDrags.clear();
   drags.forEach(([pointerId, drag]) => rollBackPuzzleDrag(drag, pointerId));
   removeAllDragGhosts();
+  puzzleSlides.forEach((land) => land());
 }
 
 function rollBackPuzzleDrag({ piece, ghost }, pointerId) {
@@ -645,9 +658,15 @@ function completePuzzle() {
 }
 
 // from is where the dragged piece's box was released, in play coordinates.
-// The piece slides the rest of the way into its spot with a click.
-function placePuzzlePiece(piece, slot, from) {
-  if (puzzleCompleting || piece.disabled || slot.classList.contains("filled")) return;
+// The piece slides the rest of the way into its spot with a click: the copy
+// that was carried slides on its own layer, and the seated piece appears
+// under it as it lands. Sliding the seated piece itself lifted it onto a new
+// layer and redrew the board around it once more when the slide ended.
+function placePuzzlePiece(piece, slot, from, drag = null) {
+  if (puzzleCompleting || piece.disabled || slot.classList.contains("filled")) {
+    drag?.ghost.remove();
+    return;
+  }
   resetDraggedPiece(piece);
   piece.classList.remove("dropped", "mismatch");
   ["left", "top", "width", "height"].forEach((property) => piece.style.removeProperty(property));
@@ -657,16 +676,37 @@ function placePuzzlePiece(piece, slot, from) {
   piece.disabled = true;
   piece.classList.add("placed");
   piece.setAttribute("aria-label", "Piece in the right place");
-  if (from && !reducedMotion()) {
-    const to = puzzleRect(piece);
-    piece.animate([
-      { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(1.06)` },
-      { transform: "none" },
-    ], { duration: PUZZLE_SNAP_MS, easing: "cubic-bezier(0.2, 0.9, 0.3, 1.15)" });
-  }
+  const slides = Boolean(drag && from && !reducedMotion());
+  if (slides) {
+    // Not a .dragging ghost any more, so finishing the puzzle leaves it be.
+    drag.ghost.className = "puzzle-piece placed sliding";
+    piece.classList.add("arriving");
+  } else drag?.ghost.remove();
   playSnapSound();
   puzzlePlaced = puzzleBoard.querySelectorAll(".puzzle-slot.filled").length;
   if (puzzlePlaced === PUZZLE_PIECE_COUNT) completePuzzle();
+  if (slides) slidePuzzlePiece(piece, from, drag);
+}
+
+function slidePuzzlePiece(piece, from, { ghost, offsetX, offsetY }) {
+  const to = puzzleRect(piece);
+  const land = () => {
+    if (!puzzleSlides.delete(land)) return;
+    ghost.remove();
+    piece.classList.remove("arriving");
+  };
+  puzzleSlides.add(land);
+  const timing = { duration: PUZZLE_SNAP_MS, easing: "cubic-bezier(0.2, 0.9, 0.3, 1.15)" };
+  // The resting style is the landing spot, so a late finish never shows the
+  // copy anywhere else.
+  ghost.style.transform = `translate3d(${to.left}px, ${to.top}px, 0)`;
+  ghost.animate([{ transform: `translate3d(${from.left}px, ${from.top}px, 0)` }, { transform: ghost.style.transform }], timing)
+    .finished.then(land, land);
+  // The lift settles back to the seated size around the grip.
+  const art = ghost.firstElementChild;
+  ["position", "left", "top", "width", "height"].forEach((property) => art.style.removeProperty(property));
+  art.style.transformOrigin = `${offsetX}px ${offsetY}px`;
+  art.animate([{ transform: `scale(${PUZZLE_LIFT_SCALE})` }, { transform: "none" }], timing);
 }
 
 function reducedMotion() {
@@ -736,8 +776,10 @@ function movePuzzlePiece(event) {
   if (puzzleDragFrame === null) puzzleDragFrame = requestAnimationFrame(paintPuzzleDrags);
 }
 
+// Only translated: Chrome redraws a moving layer with any scale in it every
+// time it moves by a fraction of a pixel.
 function positionDragGhost(drag) {
-  drag.ghost.style.transform = `translate3d(${drag.x}px, ${drag.y}px, 0) scale(1.06)`;
+  drag.ghost.style.transform = `translate3d(${drag.x}px, ${drag.y}px, 0)`;
 }
 
 // All fingers share one frame callback and use their newest coordinates.
@@ -769,10 +811,12 @@ function endPuzzleDrag(event) {
   const point = puzzlePoint(event.clientX, event.clientY);
   const released = { left: point.x - offsetX, top: point.y - offsetY };
   const slot = puzzleSlotAt(released.left + size / 2, released.top + size / 2);
-  removeDragGhost(ghost);
   if (event.type === "pointerup" && slot && Number(slot.dataset.index) === Number(piece.dataset.index)) {
-    placePuzzlePiece(piece, slot, released);
-  } else if (event.type === "pointerup") {
+    placePuzzlePiece(piece, slot, released, drag);
+    return;
+  }
+  removeDragGhost(ghost);
+  if (event.type === "pointerup") {
     leavePuzzlePiece(piece, event, drag, !slot);
     if (slot) showPuzzleMismatch(piece);
   } else {
@@ -806,7 +850,18 @@ function claimPuzzleDrag(candidate, event) {
   ghost.style.removeProperty("top");
   ghost.style.width = `${size}px`;
   ghost.style.height = `${size}px`;
-  ghost.style.transformOrigin = `${offsetX}px ${offsetY}px`;
+  // The lift enlarges the art's layout around the grip rather than scaling
+  // it, so the carried layer is drawn once and then only moved.
+  const art = ghost.firstElementChild;
+  const lift = PUZZLE_LIFT_SCALE - 1;
+  Object.assign(art.style, {
+    position: "absolute",
+    left: `${-lift * offsetX}px`,
+    top: `${-lift * offsetY}px`,
+    width: `${size * PUZZLE_LIFT_SCALE}px`,
+    height: `${size * PUZZLE_LIFT_SCALE}px`,
+    transformOrigin: `${offsetX * PUZZLE_LIFT_SCALE}px ${offsetY * PUZZLE_LIFT_SCALE}px`,
+  });
   const point = puzzlePoint(event.clientX, event.clientY);
   const drag = {
     piece,
@@ -826,9 +881,7 @@ function claimPuzzleDrag(candidate, event) {
   document.body.append(ghost);
   // Animate the art's growth so it never overrides the ghost's translation.
   if (grow !== 1 && !reducedMotion()) {
-    const art = ghost.firstElementChild;
-    art.style.transformOrigin = `${offsetX}px ${offsetY}px`;
-    art.animate([{ transform: `scale(${1 / (grow * 1.06)})` }, { transform: "none" }],
+    art.animate([{ transform: `scale(${1 / (grow * PUZZLE_LIFT_SCALE)})` }, { transform: "none" }],
       { duration: PUZZLE_RESIZE_MS, easing: "ease-out" });
   }
   piece.setPointerCapture(event.pointerId);

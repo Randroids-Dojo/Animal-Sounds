@@ -210,12 +210,14 @@ const path = require("node:path");
     assert.ok(Math.abs(carried.size - homeBox.width * knob.span) < 1, `the piece is carried at its seated size: ${carried.size}px`);
     assert.ok(Math.hypot(carried.x - landing.x, carried.y - landing.y) < 1, "the carried piece keeps its grip point under the finger");
     await page.screenshot({ path: path.join(evidence, "carried-by-knob.png") });
-    // Sample the seating motion every frame from the moment the finger lifts.
+    // Sample the seating motion every frame from the moment the finger lifts:
+    // the carried copy while it slides home, then the seated piece.
     await page.evaluate((index) => {
       window.snapFrames = [];
       const began = performance.now();
       const sample = () => {
-        const piece = document.querySelector(`.puzzle-slot.filled[data-index="${index}"] .puzzle-piece`);
+        const piece = document.querySelector(`.puzzle-piece.sliding[data-index="${index}"]`)
+          || document.querySelector(`.puzzle-slot.filled[data-index="${index}"] .puzzle-piece:not(.arriving)`);
         if (piece) {
           const rect = piece.getBoundingClientRect();
           window.snapFrames.push({ t: performance.now() - began, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, animating: piece.getAnimations().length });
