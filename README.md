@@ -287,13 +287,26 @@ Test with the kiosk locked:
 
 Run the touch-input and playback regression checks with `node --test tests/*.test.js`.
 
-For the kiosk lifecycle checks, reload the local site, then evaluate
-`tests/browser-kiosk-performance.js` in the page (before the other browser
-checks). It verifies the small drag threshold, frame scheduling, tab-state
-preservation, bounded audio caching, and video startup/teardown races using
-synthetic contacts and fake media. Reload afterwards to restore the real
-media APIs. These checks and desktop CPU throttling do not establish physical
-FreeKiosk latency or real YouTube playback on the Tab A7 Lite.
+For the kiosk lifecycle and touch-intent checks, reload the local site and
+run the following in the browser console (the first suite expects a fresh
+page):
+
+```js
+for (const file of ["browser-kiosk-performance", "browser-touch-intent"]) {
+  const result = await (0, eval)(await (await fetch(`tests/${file}.js`)).text());
+  console.table(result.results);
+  console.assert(result.passed, `${file} failed`);
+}
+location.reload(); // restore real media APIs after the test doubles
+```
+
+They verify the small drag threshold, frame scheduling, tab-state
+preservation, palm rejection, bounded audio caching, and video
+startup/teardown races using synthetic contacts and fake media. These checks
+and desktop CPU throttling do not establish physical FreeKiosk latency or real
+YouTube playback, so also check on the Tab A7 Lite in FreeKiosk: cold startup,
+tab switching, a short drag with another finger resting on the screen, and
+dragging again after returning from a video.
 
 With Playwright and Chrome available, run `node tests/browser-orientation.cjs`
 against the local server below, or pass a deployed URL as its first argument.
