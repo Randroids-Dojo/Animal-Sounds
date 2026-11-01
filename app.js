@@ -19,6 +19,8 @@ const DAILY_LIMIT_MS = 60 * 60 * 1000;
 const FIRST_BREAK_MS = 3 * 60 * 60 * 1000;
 const MAX_BREAK_MS = 3 * 60 * 60 * 1000;
 const IDLE_DIM_MS = 45 * 1000;
+// Keep reloads consistent, but start fresh when the kiosk opens a new WebView
+// session after an app or device restart.
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
 const PUZZLE_GRID_SIZE = 3;
 const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
@@ -81,7 +83,7 @@ function freshScreenTime() {
 
 function loadScreenTime() {
   try {
-    const saved = JSON.parse(localStorage.getItem(SCREEN_TIME_KEY));
+    const saved = JSON.parse(sessionStorage.getItem(SCREEN_TIME_KEY));
     if (saved?.day === localDay() && Number.isFinite(saved.dailyMs) && Number.isFinite(saved.sessionMs)) {
       return {
         day: saved.day,
@@ -130,7 +132,7 @@ let suppressWakeClick = false;
 
 function saveScreenTime() {
   try {
-    localStorage.setItem(SCREEN_TIME_KEY, JSON.stringify(screenTime));
+    sessionStorage.setItem(SCREEN_TIME_KEY, JSON.stringify(screenTime));
   } catch (_) {
     // The limits still work for this open session when storage is unavailable.
   }

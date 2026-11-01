@@ -63,7 +63,7 @@ function setup({ duration = 6, apiReady = true } = {}) {
       addEventListener() {},
     },
     window: { addEventListener() {} },
-    localStorage: { getItem: () => null },
+    sessionStorage: { getItem: () => null },
     // Leave the unrelated animal-grid initialization pending. The actual
     // playback code and its API callbacks run unchanged in this context.
     fetch: () => new Promise(() => {}),

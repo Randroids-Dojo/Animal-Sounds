@@ -135,9 +135,10 @@ The videos come from this YouTube playlist:
 - Screen time is limited to **15 active minutes per session** and **one active
   hour per local calendar day**. Each session break lasts **three hours**;
   after the fourth session reaches the daily hour, it stays locked until
-  tomorrow. Usage and
-  the current lock persist across page reloads, and hidden tabs do not count
-  toward usage.
+  tomorrow. Usage and the current lock persist across page reloads within the
+  open kiosk session. Restarting the device or closing and reopening FreeKiosk
+  starts a new session at zero and clears any break or daily lock. Hidden tabs
+  do not count toward usage.
 - Screen time starts only after an animal-tile tap or a moved puzzle piece.
   After 45 seconds without either, the app dims and pauses the clock. The next
   tap only wakes the app; a following tile tap or puzzle move resumes counting.
@@ -316,6 +317,13 @@ and desktop CPU throttling do not establish physical FreeKiosk latency or real
 YouTube playback, so also check on the Tab A7 Lite in FreeKiosk: cold startup,
 tab switching, a short drag with another finger resting on the screen, and
 dragging again after returning from a video.
+
+Run `node tests/browser-screen-time.cjs` against the local server below, or
+pass a deployed URL, to check timer persistence within an open kiosk session
+and reset on reopening. It verifies usage and locks survive reloads, while a
+new WebView session clears them and leaves permanent origin data intact.
+`PLAYWRIGHT_MODULE` selects an existing Playwright installation and
+`BROWSER_EXECUTABLE_PATH` can select an older Chromium binary.
 
 With Playwright and Chrome available, run `node tests/browser-orientation.cjs`
 against the local server below, or pass a deployed URL as its first argument.
