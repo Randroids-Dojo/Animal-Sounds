@@ -111,6 +111,8 @@ let puzzleDragFrame = null;
 // Carried copies still sliding into their spots, each with its landing step.
 const puzzleSlides = new Set();
 const puzzleDragCandidates = new Map();
+const puzzleHitAreas = new WeakMap();
+let puzzleHitContext = null;
 const tileTapCandidates = new Map();
 let pendingTileTaps = [];
 let tileTapTimer = null;
@@ -796,6 +798,29 @@ function puzzleSlotAt(x, y) {
   }) || null;
 }
 
+// Do not depend on native hit-testing of an unpainted SVG path.
+// Resolve pickup from the touch coordinates instead, preserving the shape
+// and its 8px fingertip margin even when the event targets the tray behind it.
+function puzzlePieceAt(clientX, clientY) {
+  const point = puzzlePoint(clientX, clientY);
+  puzzleHitContext ||= document.createElement("canvas").getContext("2d");
+  // Loose pieces are appended after the tray, in their stacking order.
+  const pieces = [...puzzleScreen.querySelectorAll(".puzzle-piece:not(:disabled)")].reverse();
+  return pieces.find((piece) => {
+    const rect = puzzleRect(piece);
+    const margin = 8;
+    if (!rect.width || !rect.height || point.x < rect.left - margin || point.x > rect.left + rect.width + margin
+      || point.y < rect.top - margin || point.y > rect.top + rect.height + margin) return false;
+    const { path, x, y, size } = puzzleHitAreas.get(piece);
+    const localX = x + (point.x - rect.left) * size / rect.width;
+    const localY = y + (point.y - rect.top) * size / rect.height;
+    puzzleHitContext.lineWidth = 2 * margin * size / rect.width;
+    puzzleHitContext.lineJoin = "round";
+    return puzzleHitContext.isPointInPath(path, localX, localY)
+      || puzzleHitContext.isPointInStroke(path, localX, localY);
+  }) || null;
+}
+
 function endPuzzleDrag(event) {
   puzzleDragCandidates.delete(event.pointerId);
   const drag = puzzleDrags.get(event.pointerId);
@@ -894,8 +919,9 @@ function claimPuzzleDrag(candidate, event) {
 function beginPuzzleDrag(event) {
   if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
   if (event.button !== 0 || document.body.dataset.page !== "puzzle" || !idleDim.hidden || !timeLimit.hidden) return;
-  const piece = event.currentTarget;
-  if (piece.disabled || puzzleCompleting) return;
+  if (inSafeArea(event.clientX, event.clientY) || puzzleCompleting) return;
+  const piece = puzzlePieceAt(event.clientX, event.clientY);
+  if (!piece) return;
   event.preventDefault();
   // Another finger already carries this piece and keeps it.
   if (piece.classList.contains("drag-source")) return;
@@ -904,6 +930,9 @@ function beginPuzzleDrag(event) {
     piece,
     rect: puzzleRect(piece),
   });
+  // Capture on the stable button before movement, rather than relying on
+  // implicit capture by an SVG child while waiting for drag intent.
+  piece.setPointerCapture(event.pointerId);
   if (event.pointerType === "mouse") claimPuzzleDrag(candidate, event);
   else puzzleDragCandidates.set(event.pointerId, candidate);
 }
@@ -915,7 +944,10 @@ function createPuzzlePiece(item, index, shape) {
   piece.dataset.index = index;
   piece.setAttribute("aria-label", "Puzzle piece");
   piece.append(puzzlePieceArt(item, index, shape));
-  piece.addEventListener("pointerdown", beginPuzzleDrag);
+  puzzleHitAreas.set(piece, {
+    path: new Path2D(shape),
+    ...Jigsaw.pieceBox(index % PUZZLE_GRID_SIZE, Math.floor(index / PUZZLE_GRID_SIZE)),
+  });
   piece.addEventListener("animationend", (event) => {
     if (event.animationName === "puzzle-mismatch-glow") piece.classList.remove("mismatch");
   });
@@ -1483,6 +1515,7 @@ safeBands.forEach((band) => {
 // Observe contacts at document level so native scrolling can cancel tile
 // candidates, and so each puzzle finger that demonstrates drag intent keeps
 // its own piece while resting contacts are ignored.
+puzzleScreen.addEventListener("pointerdown", beginPuzzleDrag);
 document.addEventListener("pointermove", (event) => {
   updateTileTap(event);
   movePuzzlePiece(event);
@@ -1499,6 +1532,8 @@ pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });
 document.addEventListener("lostpointercapture", (event) => {
+  const candidate = puzzleDragCandidates.get(event.pointerId);
+  if (candidate && event.target === candidate.piece) puzzleDragCandidates.delete(event.pointerId);
   const drag = puzzleDrags.get(event.pointerId);
   // SVG hit paths have implicit touch capture. Moving capture from that path
   // to its button is expected; only losing the button's capture cancels it.

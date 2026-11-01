@@ -71,7 +71,11 @@ The videos come from this YouTube playlist:
   viewport; it does not scroll.
   Several fingers can drag several pieces at once, and each piece keeps
   tracking its own finger; a second finger cannot take a piece that is already
-  being carried. A contact does not own a piece until it moves with drag intent,
+  being carried. Pickup checks the touch coordinates against the actual cut
+  shape, so it also works in WebViews that miss invisible SVG touch targets.
+  The piece's button captures the finger immediately to keep tracking it while
+  waiting for movement. A contact does not own a piece until it moves with drag
+  intent,
   so a stationary palm, belly, or extra finger cannot block the fingers doing
   the puzzle. Pieces remain where they are released until moved again or placed
   in their matching spot. A piece left over a spot it does not match stays there,
@@ -339,6 +343,11 @@ Run `node tests/browser-multitouch.cjs` with the same setup to drag two pieces
 at once with real touch input in portrait and landscape, lift one finger while
 the other keeps dragging, and measure the wrong-slot shake and glow frame by
 frame.
+Run `node tests/browser-puzzle-pickup.cjs` to check pickup with both normal
+SVG touch targets and those targets disabled to simulate missed SVG hits.
+It checks the drag threshold, canceled contacts, re-picking up a
+dropped piece, and completing all nine pieces. `BROWSER_EXECUTABLE_PATH` can
+point to an older Chromium binary; `VIEWPORT=412x800` checks phone sizing.
 Run `node tests/browser-safe-area.cjs` with the same setup to check the grip
 band on every page: edge taps, swipes, drags, and wake taps do nothing, while
 tiles just inside it, a second hand's taps and scrolls, and puzzle drags still
