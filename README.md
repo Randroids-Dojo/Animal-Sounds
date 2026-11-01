@@ -107,12 +107,17 @@ The videos come from this YouTube playlist:
   built only when opened. Dragging starts after 4 CSS pixels of movement, and
   all fingers share one animation-frame update using compositor transforms.
 - Puzzle pieces are cheap to draw on the tablet's weak GPU. Each piece's
-  picture is clipped to the piece's own box, so a carried piece's layer is
-  about the piece's size and a seated piece redraws only its own part of the
-  board. The carried layer only ever moves: its lift is laid out larger rather
-  than scaled, and its shadow is drawn with it, so it is drawn once per pick-up
-  with no extra compositor pass per frame. The carried copy also slides the
-  last bit into place, so the seated piece never gets a layer of its own.
+  picture is clipped to the piece's own box. On opening a round, the app
+  prepares nine canvas images of the cut pieces with a small baked shadow,
+  capped at twice their displayed resolution. Carrying moves one cached image
+  with a transform; it does not redraw SVG masks or apply blur filters. The
+  lift is laid out larger rather than scaled. Preparation is spread across
+  tasks; a very early pickup uses its SVG immediately, then switches to the
+  bitmap without interrupting the drag. If preparation fails, SVG dragging
+  still works. Only this round's pieces retain their images. Seated pieces
+  keep their SVG artwork so neighbors join without gaps. The carried copy also
+  slides the last bit into place, so the seated piece never gets a layer of
+  its own.
 - Tile images load lazily and decode asynchronously. YouTube loads on the
   first animal tap and reuses the player for consecutive Sounds selections.
   Changing tabs, dimming for idle, reaching a screen-time limit, or hiding the
@@ -348,17 +353,25 @@ SVG touch targets and those targets disabled to simulate missed SVG hits.
 It checks the drag threshold, canceled contacts, re-picking up a
 dropped piece, and completing all nine pieces. `BROWSER_EXECUTABLE_PATH` can
 point to an older Chromium binary; `VIEWPORT=412x800` checks phone sizing.
+Run `node tests/browser-puzzle-rendering.cjs` to check prepared, delayed, and
+unavailable carry images with real touch input. Prepared copies have no live
+SVG or filters, moving them does not redraw their canvases, and the newest
+touch position reaches the displayed piece. It also checks all four picture
+kinds and bounded image dimensions. `BROWSER_EXECUTABLE_PATH` selects an older
+Chromium for these checks too.
 Run `node tests/browser-safe-area.cjs` with the same setup to check the grip
 band on every page: edge taps, swipes, drags, and wake taps do nothing, while
 tiles just inside it, a second hand's taps and scrolls, and puzzle drags still
 work in both orientations.
 Run `node tests/browser-puzzle-paint.cjs` with the same setup to check how much
 drawing the puzzle asks of Chrome, counted in a trace rather than timed: a
-carried piece's layer is at most 1.5 times the piece, it only translates, it
-adds no compositor pass per frame, and a seat redraws at most one screen of
-the board. Each check is first shown the fault it guards against (the whole
-picture under every piece, a scaled carried layer, a composited shadow) and
-must flag it. `PUZZLE=animal` (or another kind) picks the picture. Desktop
+carried bitmap's layer is at most 1.5 times the piece, it only translates,
+has no live SVG or filters, is not repeatedly rasterized while carried, and a
+seat redraws at most one screen of the board. Each check is first shown the
+fault it guards against (the whole picture under every piece, a scaled
+carried layer, live SVG artwork, repeated board painting, a composited shadow)
+and must flag it.
+`PUZZLE=animal` (or another kind) picks the picture. Desktop
 counts say nothing about the tablet's frame rate on their own; measure that on
 the device.
 

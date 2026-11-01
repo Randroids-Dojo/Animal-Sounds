@@ -113,6 +113,9 @@ const puzzleSlides = new Set();
 const puzzleDragCandidates = new Map();
 const puzzleHitAreas = new WeakMap();
 let puzzleHitContext = null;
+const puzzleDragArtwork = new WeakMap();
+let puzzleArtLoad = null;
+let puzzleArtReady = Promise.resolve();
 const tileTapCandidates = new Map();
 let pendingTileTaps = [];
 let tileTapTimer = null;
@@ -586,6 +589,66 @@ function puzzlePieceArt(item, index, shape) {
   return art;
 }
 
+// Prepare the carried artwork before it is needed. A moving bitmap does not
+// ask the tablet to composite SVG masks, nested viewports, or blur filters.
+// Keep the SVG on the board so seated neighbors still join without seams.
+async function preparePuzzleDragArtwork(item, pieces, signal) {
+  const size = seatedPieceSize() * PUZZLE_LIFT_SCALE;
+  const density = Math.min(window.devicePixelRatio || 1, 2);
+  const pictureSize = Jigsaw.SIZE * PUZZLE_GRID_SIZE;
+  const svg = svgElement("svg", { viewBox: `0 0 ${pictureSize} ${pictureSize}`, width: pictureSize, height: pictureSize });
+  svg.append(document.querySelector("#puzzle-defs > defs").cloneNode(true), puzzlePicture(item));
+  // An SVG loaded as an image cannot fetch its own external picture.
+  const response = await fetch(item.puzzleImage || item.image, { signal });
+  if (!response.ok) throw new Error("Puzzle artwork unavailable");
+  const blob = await response.blob();
+  const data = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+  if (signal.aborted) return;
+  svg.querySelector("image").setAttribute("href", data);
+  const picture = new Image();
+  picture.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+  await picture.decode();
+  for (const piece of pieces) {
+    if (signal.aborted) return;
+    const { path, x, y, size: span } = puzzleHitAreas.get(piece);
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = Math.ceil(size * density);
+    canvas.setAttribute("aria-hidden", "true");
+    const context = canvas.getContext("2d");
+    const scale = canvas.width / span;
+    context.setTransform(scale, 0, 0, scale, -x * scale, -y * scale);
+    // A small shadow is baked once, rather than blurred during compositing.
+    context.fillStyle = "#FFF";
+    context.shadowColor = "rgba(59, 53, 96, 0.25)";
+    context.shadowOffsetY = 3 * density;
+    context.fill(path);
+    context.shadowColor = "transparent";
+    context.save();
+    context.clip(path);
+    context.drawImage(picture, 0, 0, pictureSize, pictureSize);
+    context.restore();
+    context.strokeStyle = "rgba(255, 255, 255, 0.92)";
+    context.lineWidth = 3 * span / size;
+    context.lineJoin = "round";
+    context.stroke(path);
+    puzzleDragArtwork.set(piece, canvas);
+    // A very early pickup uses the SVG immediately, then switches to the
+    // prepared bitmap without delaying or restarting that finger's drag.
+    puzzleDrags.forEach((drag) => {
+      if (drag.piece !== piece) return;
+      canvas.style.cssText = drag.ghost.firstElementChild.style.cssText;
+      drag.ghost.replaceChildren(canvas);
+    });
+    // Spread preparation across tasks so the first round stays interactive.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 // The board shows a faint copy of the picture with every piece's outline.
 function renderPuzzleBoard(item, shapes) {
   const size = Jigsaw.SIZE * PUZZLE_GRID_SIZE;
@@ -866,7 +929,8 @@ function claimPuzzleDrag(candidate, event) {
   const start = puzzlePoint(candidate.startX, candidate.startY);
   const offsetX = (start.x - rect.left) * grow;
   const offsetY = (start.y - rect.top) * grow;
-  const ghost = piece.cloneNode(true);
+  const bitmap = puzzleDragArtwork.get(piece);
+  const ghost = piece.cloneNode(!bitmap);
   ghost.className = "puzzle-piece dragging";
   ghost.setAttribute("aria-hidden", "true");
   ghost.style.cssText = piece.style.cssText;
@@ -874,6 +938,11 @@ function claimPuzzleDrag(candidate, event) {
   ghost.style.removeProperty("top");
   ghost.style.width = `${size}px`;
   ghost.style.height = `${size}px`;
+  if (bitmap) {
+    bitmap.getAnimations().forEach((animation) => animation.cancel());
+    bitmap.style.cssText = "";
+    ghost.replaceChildren(bitmap);
+  }
   // The lift enlarges the art's layout around the grip rather than scaling
   // it, so the carried layer is drawn once and then only moved.
   const art = ghost.firstElementChild;
@@ -957,6 +1026,7 @@ function createPuzzlePiece(item, index, shape) {
 // picture is for tests; rounds normally deal from the deck.
 function newPuzzle(picture = upcomingPuzzle || PuzzleDeck.next(puzzleDeck)) {
   cancelPuzzleDrag();
+  puzzleArtLoad?.abort();
   clearTimeout(puzzleSuccessTimer);
   puzzleCompleting = false;
   puzzleScreen.classList.remove("puzzle-complete");
@@ -987,6 +1057,9 @@ function newPuzzle(picture = upcomingPuzzle || PuzzleDeck.next(puzzleDeck)) {
   puzzleTray.replaceChildren(...shuffled([...shapes.keys()])
     .map((index) => createPuzzlePiece(currentPuzzle, index, shapes[index])));
   if (document.body.dataset.page === "puzzle") positionPages();
+  puzzleArtLoad = new AbortController();
+  // If an image cannot be prepared, the existing SVG remains playable.
+  puzzleArtReady = preparePuzzleDragArtwork(currentPuzzle, [...puzzleTray.children], puzzleArtLoad.signal).catch(() => {});
 }
 
 function puzzleAudio() {
