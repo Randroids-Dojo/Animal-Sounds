@@ -60,7 +60,7 @@ body::after {
 }
 
 /* The title and today's time sit in the top grip band, so they take no room
-   from the pages. They ignore touches, which the band swallows anyway. */
+   from the pages. Only the title accepts taps, for the hidden admin reset. */
 .topbar h1,
 #daily-time {
   position: fixed;
@@ -71,6 +71,8 @@ body::after {
 }
 
 .topbar h1 {
+  z-index: 21;
+  pointer-events: auto;
   left: var(--safe-edge);
   margin: 0;
   font-size: 1.15rem;
@@ -78,6 +80,8 @@ body::after {
   letter-spacing: 0.06em;
   opacity: 0.55;
 }
+
+.topbar h1.time-locked { color: var(--cream); }
 
 .visually-hidden {
   position: absolute;

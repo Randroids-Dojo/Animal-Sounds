@@ -19,9 +19,9 @@ const DAILY_LIMIT_MS = 60 * 60 * 1000;
 const FIRST_BREAK_MS = 3 * 60 * 60 * 1000;
 const MAX_BREAK_MS = 3 * 60 * 60 * 1000;
 const IDLE_DIM_MS = 45 * 1000;
-// Keep reloads consistent, but start fresh when the kiosk opens a new WebView
-// session after an app or device restart.
+// Preserve usage and locks across reloads and app/device restarts.
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
+const ADMIN_RESET_TAPS = 17;
 const PUZZLE_GRID_SIZE = 3;
 const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
 const PUZZLE_SNAP_MS = 170;
@@ -44,6 +44,7 @@ let foods = [];
 let robots = [];
 
 const grid = document.getElementById("grid");
+const appTitle = document.getElementById("app-title");
 const overlay = document.getElementById("overlay");
 const shield = document.getElementById("shield");
 const loading = document.getElementById("loading");
@@ -83,7 +84,7 @@ function freshScreenTime() {
 
 function loadScreenTime() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(SCREEN_TIME_KEY));
+    const saved = JSON.parse(localStorage.getItem(SCREEN_TIME_KEY));
     if (saved?.day === localDay() && Number.isFinite(saved.dailyMs) && Number.isFinite(saved.sessionMs)) {
       return {
         day: saved.day,
@@ -100,6 +101,7 @@ function loadScreenTime() {
 }
 
 let screenTime = loadScreenTime();
+let adminResetTaps = 0;
 let countingSince = null;
 let lastInteractionAt = Date.now();
 let puzzleDeck = null;
@@ -132,9 +134,32 @@ let suppressWakeClick = false;
 
 function saveScreenTime() {
   try {
-    sessionStorage.setItem(SCREEN_TIME_KEY, JSON.stringify(screenTime));
+    localStorage.setItem(SCREEN_TIME_KEY, JSON.stringify(screenTime));
   } catch (_) {
     // The limits still work for this open session when storage is unavailable.
+  }
+}
+
+function resetScreenTime() {
+  screenTime = freshScreenTime();
+  countingSince = null;
+  timeLimit.hidden = true;
+  appTitle.classList.remove("time-locked");
+  wakeIdleScreen();
+  saveScreenTime();
+  renderDailyTime();
+}
+
+function handleAdminResetClick(event) {
+  if (!appTitle.contains(event.target)) {
+    adminResetTaps = 0;
+    return;
+  }
+  consumeWakeEvent(event);
+  adminResetTaps += 1;
+  if (adminResetTaps === ADMIN_RESET_TAPS) {
+    adminResetTaps = 0;
+    resetScreenTime();
   }
 }
 
@@ -282,6 +307,7 @@ function showLimit(now = Date.now()) {
     ? "You have had a full hour of animal sounds. Come back tomorrow."
     : `Come back in ${formatRemaining(screenTime.lockedUntil - now)}.`;
   timeLimit.hidden = false;
+  appTitle.classList.add("time-locked");
   cancelTileTaps();
   cancelPuzzleDrag();
   stopPlaybackForLimit();
@@ -307,6 +333,7 @@ function updateScreenTime(now = Date.now()) {
     screenTime = freshScreenTime();
     countingSince = null;
     timeLimit.hidden = true;
+    appTitle.classList.remove("time-locked");
     saveScreenTime();
   }
 
@@ -319,6 +346,7 @@ function updateScreenTime(now = Date.now()) {
     if (now >= screenTime.lockedUntil) {
       screenTime.lockedUntil = 0;
       timeLimit.hidden = true;
+      appTitle.classList.remove("time-locked");
       saveScreenTime();
       showIdleDim(now);
     } else {
@@ -1570,6 +1598,12 @@ closeBtn.addEventListener("pointercancel", cancelHold);
 
 // Swallow taps on the video and any long-press context menus.
 shield.addEventListener("pointerdown", (e) => e.preventDefault());
+// Observe outside contacts before wake/playback guards can consume them.
+document.addEventListener("pointerdown", (event) => {
+  if (!appTitle.contains(event.target)) adminResetTaps = 0;
+}, { capture: true });
+// Title taps work in the grip band and above the idle and time-limit layers.
+document.addEventListener("click", handleAdminResetClick, { capture: true });
 // This capture guard must run before the normal tile and puzzle handlers.
 // Waking removes the visual dim immediately, but consumes the entire gesture.
 ["pointerdown", "pointermove", "pointerup", "pointercancel"].forEach((type) => {
