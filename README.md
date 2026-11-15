@@ -214,6 +214,15 @@ The videos come from this YouTube playlist:
   locked. The 17th tap clears today's usage, session usage, break count, and
   lock, saves the reset, and wakes the app. Any tap elsewhere restarts the
   sequence; there is no time limit between title taps.
+  The break screen ("Time for a break!" or "All done for today!") has a
+  second way in: tap its **bottom-right corner 17 times in a row**, anywhere
+  in a 120 px square there, including the grip band. It does the same reset.
+  Taps outside the square, on the title, or in other corners start the count
+  over, and the corner does nothing when no break is showing. FreeKiosk's
+  own fixed-corner return to settings may share that corner, but it needs 15
+  taps within 1.5 seconds; tap at a relaxed pace (there is no time limit
+  here), and a little in from the very edge if the corner itself does not
+  respond.
 - Screen time starts only after an animal-tile tap, a moved puzzle piece, or
   play in the fish tank (a tap, a lead, Feed or Change water). After 45 seconds
   without any of these, the app dims and pauses the clock. The next tap only
@@ -397,7 +406,10 @@ dragging again after returning from a video.
 
 Run `node tests/browser-screen-time.cjs` against the local server below, or
 pass a deployed URL, to check that usage and locks survive reloads and fresh
-WebView sessions. It also checks the 17-tap admin reset, interrupted sequences,
+WebView sessions. It also checks the 17-tap admin reset from the title and
+from the break screen's bottom-right corner (other corners, taps just outside
+it, mixed title and corner taps, and corner taps with no break showing do
+nothing), interrupted sequences,
 the locked and dimmed screens, saved resets, and the local calendar-day reset.
 `PLAYWRIGHT_MODULE` selects an existing Playwright installation and
 `BROWSER_EXECUTABLE_PATH` can select an older Chromium binary.

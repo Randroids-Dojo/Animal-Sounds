@@ -1,7 +1,8 @@
 "use strict";
 
 // Close and relaunch the browser with the same on-disk profile to model
-// FreeKiosk/device restarts, then use real title taps to reset saved limits.
+// FreeKiosk/device restarts, then use real title taps, and real taps in the
+// break screen's bottom-right corner, to reset saved limits.
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const assert = require("node:assert/strict");
 const { mkdtempSync, rmSync } = require("node:fs");
@@ -106,6 +107,67 @@ const { join } = require("node:path");
     await restart();
     await checkReset();
 
+    // The break screen's bottom-right corner does the same: 17 taps in a row
+    // anywhere in a 120 px square, in the grip band or just inside it.
+    const lockBreak = () => page.evaluate(() => {
+      screenTime.dailyMs = 20 * 60 * 1000;
+      screenTime.sessionMs = SESSION_LIMIT_MS;
+      saveScreenTime();
+      wakeIdleScreen();
+      updateScreenTime();
+      renderDailyTime();
+    });
+    const cornerTaps = async (count, points = [[780, 1320], [690, 1230], [760, 1250], [795, 1335]]) => {
+      for (let i = 0; i < count; i += 1) {
+        const [x, y] = points[i % points.length];
+        await page.touchscreen.tap(x, y);
+      }
+    };
+    await lockBreak();
+    assert.equal((await state()).locked, true, "a break to undo");
+    assert.equal(await page.locator("#time-limit-title").textContent(), "Time for a break!");
+    await cornerTaps(16);
+    assert.equal((await state()).locked, true, "16 corner taps do not unlock the app");
+    await page.touchscreen.tap(670, 1320);
+    await cornerTaps(1);
+    assert.equal((await state()).locked, true, "a tap just outside the corner interrupts the sequence");
+    await cornerTaps(15);
+    assert.equal((await state()).locked, true, "an interrupted sequence needs 17 new corner taps");
+    await cornerTaps(1);
+    await checkReset();
+    assert.equal(await page.evaluate(() => idleDim.hidden), true, "the corner reset wakes the screen");
+    await restart();
+    await checkReset();
+
+    // Title and corner taps do not add up to a reset.
+    await lockBreak();
+    await titleTaps(10);
+    await cornerTaps(7);
+    assert.equal((await state()).locked, true, "10 title taps and 7 corner taps do not unlock");
+    await cornerTaps(10);
+    await checkReset();
+
+    // The other three corners do nothing.
+    await lockBreak();
+    for (const [x, y] of [[20, 1320], [780, 20], [20, 20]]) {
+      for (let i = 0; i < 17; i += 1) await page.touchscreen.tap(x, y);
+    }
+    assert.equal((await state()).locked, true, "only the bottom-right corner counts");
+    await cornerTaps(17);
+    await checkReset();
+
+    // Without a break showing, the corner is just the grip band.
+    await page.evaluate(() => {
+      screenTime.dailyMs = 65000;
+      screenTime.sessionMs = 65000;
+      saveScreenTime();
+      wakeIdleScreen();
+      renderDailyTime();
+    });
+    await cornerTaps(17);
+    assert.equal((await state()).dailyMs, 65000, "corner taps reset nothing outside a break");
+    await page.evaluate(() => resetScreenTime());
+
     await page.evaluate(() => {
       screenTime.dailyMs = DAILY_LIMIT_MS;
       screenTime.breakCount = 4;
@@ -121,6 +183,19 @@ const { join } = require("node:path");
     await titleTaps(16, true);
     assert.equal((await state()).locked, true, "16 mouse clicks also leave the daily lock intact");
     await titleTaps(1, true);
+    await checkReset();
+
+    // The corner also undoes the daily lock, which uses the same screen.
+    await page.evaluate(() => {
+      screenTime.dailyMs = DAILY_LIMIT_MS;
+      screenTime.breakCount = 4;
+      lockForBreak();
+      renderDailyTime();
+    });
+    assert.equal(await page.locator("#time-limit-title").textContent(), "All done for today!");
+    await cornerTaps(16);
+    assert.equal((await state()).locked, true, "16 corner taps leave the daily lock");
+    await cornerTaps(1);
     await checkReset();
 
     await page.evaluate(() => {
@@ -165,6 +240,7 @@ const { join } = require("node:path");
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ passed: true, browser: browserVersion, reloadPreservesUsageAndLocks: true,
       browserRestartPreservesUsageAndLocks: true, seventeenthTapResetsBreakAndDailyLocks: true,
+      breakCornerResetsAfterSeventeenTaps: true,
       outsideTapsInterruptCode: true, resetWorksWhileDimmed: true, resetPersistsAcrossRestart: true,
       normalPlayResumes: true, unrelatedPreferencesPreserved: true, newCalendarDayResetsUsage: true }, null, 2));
   } finally {

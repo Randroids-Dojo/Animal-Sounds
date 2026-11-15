@@ -22,6 +22,11 @@ const IDLE_DIM_MS = 45 * 1000;
 // Preserve usage and locks across reloads and app/device restarts.
 const SCREEN_TIME_KEY = "animal-sounds-screen-time-v1";
 const ADMIN_RESET_TAPS = 17;
+// The same reset from the break screen: this many taps in a row in its
+// bottom-right corner, a square this big. Larger than FreeKiosk's own corner
+// target, so a parent can tap a little way in from the very edge.
+const CORNER_RESET_TAPS = 17;
+const RESET_CORNER_PX = 120;
 const PUZZLE_GRID_SIZE = 3;
 const PUZZLE_PIECE_COUNT = PUZZLE_GRID_SIZE ** 2;
 const PUZZLE_SNAP_MS = 170;
@@ -105,6 +110,7 @@ function loadScreenTime() {
 
 let screenTime = loadScreenTime();
 let adminResetTaps = 0;
+let cornerResetTaps = 0;
 let countingSince = null;
 let lastInteractionAt = Date.now();
 let puzzleDeck = null;
@@ -161,15 +167,37 @@ function resetScreenTime() {
   renderDailyTime();
 }
 
+// Physical screen coordinates, whatever page is showing.
+function inResetCorner(x, y) {
+  return x >= window.innerWidth - RESET_CORNER_PX && y >= window.innerHeight - RESET_CORNER_PX;
+}
+
+// Keyboard and assistive clicks have no position, so only a real tap counts.
+function inBreakCorner(event) {
+  return !timeLimit.hidden && event.detail !== 0 && inResetCorner(event.clientX, event.clientY);
+}
+
+// Two hidden ways to clear today's screen time: tap the title 17 times in a
+// row, or tap the break screen's bottom-right corner 17 times in a row. A tap
+// anywhere else starts both counts over, so play cannot stumble into either.
 function handleAdminResetClick(event) {
-  if (!appTitle.contains(event.target)) {
-    adminResetTaps = 0;
+  const onTitle = appTitle.contains(event.target);
+  const inCorner = !onTitle && inBreakCorner(event);
+  if (!onTitle) adminResetTaps = 0;
+  if (!inCorner) cornerResetTaps = 0;
+  if (!onTitle && !inCorner) return;
+  consumeWakeEvent(event);
+  if (onTitle) {
+    adminResetTaps += 1;
+    if (adminResetTaps === ADMIN_RESET_TAPS) {
+      adminResetTaps = 0;
+      resetScreenTime();
+    }
     return;
   }
-  consumeWakeEvent(event);
-  adminResetTaps += 1;
-  if (adminResetTaps === ADMIN_RESET_TAPS) {
-    adminResetTaps = 0;
+  cornerResetTaps += 1;
+  if (cornerResetTaps === CORNER_RESET_TAPS) {
+    cornerResetTaps = 0;
     resetScreenTime();
   }
 }
@@ -1622,8 +1650,10 @@ shield.addEventListener("pointerdown", (e) => e.preventDefault());
 // Observe outside contacts before wake/playback guards can consume them.
 document.addEventListener("pointerdown", (event) => {
   if (!appTitle.contains(event.target)) adminResetTaps = 0;
+  if (timeLimit.hidden || !inResetCorner(event.clientX, event.clientY)) cornerResetTaps = 0;
 }, { capture: true });
-// Title taps work in the grip band and above the idle and time-limit layers.
+// Title and break-corner taps work in the grip band and above the idle and
+// time-limit layers.
 document.addEventListener("click", handleAdminResetClick, { capture: true });
 // This capture guard must run before the normal tile and puzzle handlers.
 // Waking removes the visual dim immediately, but consumes the entire gesture.
