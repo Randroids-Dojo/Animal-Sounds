@@ -39,9 +39,10 @@ The videos come from this YouTube playlist:
   SVG illustrations in `images/alphabet/`; phrase recordings are in `audio/alphabet/`.
 - Tap the large **Puzzle** tab in the header to open **Animal Puzzle**; tap the
   large **Sounds** tab to return. Swipe navigation is deliberately disabled so
-  dragging a puzzle piece cannot accidentally change pages. When six labeled
+  dragging a puzzle piece cannot accidentally change pages. When seven labeled
   tabs do not fit in one row, as on a phone, the tabs show their pictures only
-  (the labels remain for screen readers). The title and **Today** timer sit in
+  (the labels remain for screen readers). Tab padding is trimmed so all seven
+  labels still fit the tablet's 800 px portrait width. The title and **Today** timer sit in
   the top grip band, where they take no room from the pages.
   Each round cuts a picture into a 3×3 jigsaw: one of 29 animals, 26
   dinosaurs, 20 foods, or 8 robots. The kinds take turns in a shuffled order,
@@ -80,6 +81,53 @@ The videos come from this YouTube playlist:
   the puzzle. Pieces remain where they are released until moved again or placed
   in their matching spot. A piece left over a spot it does not match stays there,
   shakes slightly, and glows faint red for under a second.
+- The **Fish** tab is a pet goldfish in a tank of pebbles, seaweed and a sunken
+  pirate ship. It lives in real time, saved on the device (each device has its
+  own fish), so hours and days pass while the tab, the app, or the tablet is
+  off. A clock set back, as when the tablet boots with its clock reset, pauses
+  the fish until the clock catches up again rather than changing it for good.
+  The care rules are in `goldfish.js`; drawing and motion in `fish-tank.js`.
+  - **Feed** sprinkles three flakes from a shaker. A hungry fish chases and
+    gulps them. Hunger goes from full to starving in 12 hours, and a new fish
+    starts hungry, so feeding is the first thing to do. A full fish shakes its
+    head at more food, which sinks to the pebbles and stays there.
+  - The water clouds over on its own in about a day, and faster with each
+    flake left on the pebbles (five is enough). **Change water** appears only
+    then. It drains about half the water, sweeps the old food away, and refills
+    it clear. Water left very cloudy (about two and a half days, or a dozen
+    leftover flakes) makes the fish sick over a few hours: pale, heavy-lidded,
+    drooping fins, moping on the bottom, and not eating while the water stays
+    dirty. Fresh water makes it well again in about 15 seconds, before the
+    45-second idle dim, and it eats again straight away.
+  - It grows over months, but only while it is fed and well: from a small
+    bronze baby to a gold fish with a long fan tail, about 90% grown after 100
+    days of good care. It never dies; neglect only pauses its growth until it
+    is cared for again.
+  - What it needs shows over its head, one thing at a time, as the icon of the
+    button that helps, and that button breathes: water when sick in dirty
+    water, then food when hungry, then water when the tank is cloudy. It only
+    asks for water while Change water is showing.
+  - Tap the fish to hear "Goldfish" and see bubbles; tap the ship to hear
+    "Pirate ship" as bubbles pour out of a porthole; tap the water and the fish
+    comes to look. A finger moving across the water leads the fish; a resting
+    one does not, and a leading finger that flattens into a palm lets go.
+    Taps use the same fingertip rules as the tiles. Taps, Feed, Change water
+    and leading (credited every second, so a long lead never dims the screen)
+    count as play for screen time.
+  - The tank is cheap to draw on the tablet. The water, plants, pebbles and
+    ship are one canvas painted once. The fish is redrawn each frame into its
+    own small canvas that is only ever moved, never scaled; its turns, tilt and
+    growth are drawn inside it. Flakes and the thought bubble are small moved
+    layers, bubbles are compositor animations, and cloudy water is a tiny
+    canvas stretched soft whose opacity follows the dirt. The two buttons
+    have their own layers, so their glow never redraws the page. Nothing
+    animates unless the tab is showing and the app is awake, including the
+    glow and the thought bubble under the dim or a break. Leaving stops the
+    tank's sounds, finishes a water change, and eats or settles any flakes
+    still falling.
+  - Sounds are made on the spot with Web Audio, like the puzzle's click. The
+    two names are recordings in Randy's voice (`audio/goldfish.mp3`,
+    `audio/pirate-ship.mp3`). The fish and its icons are original artwork.
 - The Puzzle tab stays in portrait when the device turns. It requests a native
   orientation lock where supported, and counter-rotates its play surface in
   kiosk WebViews that reject the lock. Piece sizes and completed slots stay
@@ -142,9 +190,11 @@ The videos come from this YouTube playlist:
   locked. The 17th tap clears today's usage, session usage, break count, and
   lock, saves the reset, and wakes the app. Any tap elsewhere restarts the
   sequence; there is no time limit between title taps.
-- Screen time starts only after an animal-tile tap or a moved puzzle piece.
-  After 45 seconds without either, the app dims and pauses the clock. The next
-  tap only wakes the app; a following tile tap or puzzle move resumes counting.
+- Screen time starts only after an animal-tile tap, a moved puzzle piece, or
+  play in the fish tank (a tap, a lead, Feed or Change water). After 45 seconds
+  without any of these, the app dims and pauses the clock. The next tap only
+  wakes the app; a following tile tap, puzzle move or tank play resumes
+  counting. Watching the fish swim does not count.
   The whole wake gesture is consumed, including extra fingers, swipes, and
   delayed clicks, so it cannot activate controls behind the dimming layer.
   Swipes, wake taps, close controls, and passive video playback do not count.
@@ -385,6 +435,29 @@ and must flag it.
 `PUZZLE=animal` (or another kind) picks the picture. Desktop
 counts say nothing about the tablet's frame rate on their own; measure that on
 the device.
+Run `node tests/browser-goldfish.cjs` with the same setup to play the Fish tab
+with real touches: a hungry new fish eats each sprinkle and refuses food once
+full, leftovers cloud the water until Change water appears, and every frame of
+the water change keeps the fish under the water line. It checks the fish, ship
+and water taps and their recordings, leading with a moving finger but not a
+resting one, a lead that turns into a palm, a minute-long lead that must not
+dim the screen, a mouse drag whose closing click is not a tap, a tap on a
+fish that has swum on, saves across reloads, a fish that is hungry and cloudy
+overnight, sick after four days, eating as soon as its water is changed and
+well soon after, never asking for water while Change water is hidden, grown
+and gold after months, and that the tank, its looping animations and its
+sounds stop when the tab changes (including to the puzzle), dims, locks or
+hides. It also checks five phone and tablet layouts, buttons whose picture
+and word fit inside them, and that the thought bubble stays in the water.
+`ONLY=care,time` runs some parts.
+Run `node tests/browser-goldfish-paint.cjs` to count the tank's drawing in a
+trace while a grown fish chases flakes among bubbles in cloudy water, which
+is then drained and refilled: no layer is redrawn as things move, the fish's
+layer only translates, and the frame callbacks stay small with the CPU slowed
+six times. Each check is first shown its fault
+(movers painted into the page, the water redrawn, a scaled fish, slow frames).
+On the Pixel 8 Pro the same scene ran at about 60 fps; the tablet's frame rate
+is still unmeasured.
 
 ```bash
 python3 -m http.server 8642

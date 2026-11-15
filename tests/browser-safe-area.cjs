@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 
 const W = 800;
 const H = 1340;
-const PAGES = ["animals", "dinosaurs", "foods", "alphabet", "lessons", "puzzle"];
+const PAGES = ["animals", "dinosaurs", "foods", "alphabet", "lessons", "puzzle", "fish"];
 
 (async () => {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
@@ -46,7 +46,7 @@ const PAGES = ["animals", "dinosaurs", "foods", "alphabet", "lessons", "puzzle"]
     page: document.body.dataset.page,
     played: window.played.slice(),
     scrollY: Math.round(scrollY),
-    drags: puzzleDrags.size + puzzleDragCandidates.size,
+    drags: puzzleDrags.size + puzzleDragCandidates.size + fishFollowers.size,
     dropped: document.querySelectorAll(".puzzle-piece.dropped").length,
     dimmed: !idleDim.hidden,
   }));

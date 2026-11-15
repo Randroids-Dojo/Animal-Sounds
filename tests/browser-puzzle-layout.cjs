@@ -52,11 +52,16 @@ const VIEWPORTS = [
       const layout = await page.evaluate(() => {
         const rect = (element) => puzzleRect(element);
         const tabs = [...document.querySelectorAll("#page-tabs button")].map(rect);
+        // The row never wraps, so a tab that does not fit is clipped instead.
+        const clippedTabs = [...document.querySelectorAll("#page-tabs button")]
+          .filter((tab) => tab.scrollWidth > tab.clientWidth + 1 || tab.scrollHeight > tab.clientHeight + 1)
+          .map((tab) => tab.textContent.trim());
         const pieces = [...document.querySelectorAll("#puzzle-tray .puzzle-piece")].map(rect);
         return {
           play: { width: playViewport.width, height: playViewport.height },
           edge: safeEdge(),
           tabs,
+          clippedTabs,
           board: rect(document.getElementById("puzzle-board")),
           pieces,
           seated: seatedPieceSize(),
@@ -73,7 +78,8 @@ const VIEWPORTS = [
         lowestPiecePx: Math.round(Math.max(...pieces.map((piece) => piece.top + piece.height))),
         bottomBandPx: play.height - edge,
       };
-      assert.ok(sameRow, `${label}: the six tabs fit in one row`);
+      assert.ok(sameRow, `${label}: the seven tabs share one row`);
+      assert.deepEqual(layout.clippedTabs, [], `${label}: and every tab fits its picture and label`);
       assert.ok(Math.abs(board.width - (play.width - 2 * MARGIN)) < 1, `${label}: the board spans the screen less ${MARGIN} px: ${board.width}`);
       assert.ok(Math.abs(metrics.marginsPx[0] - metrics.marginsPx[1]) <= 1, `${label}: the board is centered`);
       for (const piece of pieces) {

@@ -36,6 +36,8 @@ const PUZZLE_MARGIN = 8;
 // The smallest loose piece the board gives up width for; a toddler's fingertip.
 const PUZZLE_MIN_TRAY_PIECE = 48;
 const SVG_NS = "http://www.w3.org/2000/svg";
+// The pet goldfish lives on, in real time, across reloads and restarts.
+const GOLDFISH_KEY = "animal-sounds-goldfish-v1";
 
 // Loaded once at startup; each entry: { name, videoId, image, hue? }
 let animals = [];
@@ -64,7 +66,8 @@ const puzzleSuccess = document.getElementById("puzzle-success");
 const puzzleCuts = document.getElementById("puzzle-cuts");
 const puzzleHueRotate = document.getElementById("puzzle-hue-rotate");
 const pageTabs = document.querySelectorAll("[data-page-target]");
-const PAGE_SCREENS = { animals: "animal-screen", puzzle: "puzzle-screen", dinosaurs: "dinosaur-screen", foods: "food-screen", alphabet: "alphabet-screen", lessons: "lessons-screen" };
+const PAGE_SCREENS = { animals: "animal-screen", puzzle: "puzzle-screen", dinosaurs: "dinosaur-screen", foods: "food-screen", alphabet: "alphabet-screen", lessons: "lessons-screen", fish: "fish-screen" };
+const fishTankElement = document.getElementById("fish-tank");
 let playViewport = { width: 0, height: 0, rotation: 0 };
 
 // Reuse the player for consecutive Sounds taps; release its iframe and
@@ -131,6 +134,12 @@ const downPointers = new Set();
 const wakePointers = new Set();
 let wakingGesture = false;
 let suppressWakeClick = false;
+let fishTank = null;
+// Touches on the water that have moved far enough to lead the fish.
+const fishFollowers = new Map();
+let fishLeadEndedAt = 0;
+// The tank's sounds still playing, so leaving the tank can stop them.
+const fishSoundNodes = new Set();
 
 function saveScreenTime() {
   try {
@@ -190,6 +199,7 @@ function showIdleDim(now = Date.now()) {
   releaseMedia();
   audioContext?.suspend();
   idleDim.hidden = false;
+  syncFishTank();
 }
 
 function recordInteraction(now = Date.now()) {
@@ -197,11 +207,13 @@ function recordInteraction(now = Date.now()) {
   lastInteractionAt = now;
   if (!idleDim.hidden) idleDim.hidden = true;
   startCounting(now);
+  syncFishTank();
 }
 
 function wakeIdleScreen(now = Date.now()) {
   lastInteractionAt = now;
   idleDim.hidden = true;
+  syncFishTank();
 }
 
 function consumeWakeEvent(event) {
@@ -311,6 +323,7 @@ function showLimit(now = Date.now()) {
   cancelTileTaps();
   cancelPuzzleDrag();
   stopPlaybackForLimit();
+  syncFishTank();
 }
 
 function lockForBreak(now = Date.now()) {
@@ -398,6 +411,7 @@ async function init() {
   robots = await robotResponse.json();
   renderAlphabet(await alphabetResponse.json());
   renderLessons();
+  createFishTank();
   // The header's height, which the puzzle layout uses, settles with the font.
   document.fonts?.ready.then(positionPages);
   // A piece's box is its cell plus room for knobs on every side.
@@ -456,7 +470,7 @@ function commitBestTileTap() {
     !candidates.length
     || !overlay.hidden
     || !timeLimit.hidden
-    || !["animals", "dinosaurs", "foods", "alphabet", "lessons"].includes(document.body.dataset.page)
+    || !["animals", "dinosaurs", "foods", "alphabet", "lessons", "fish"].includes(document.body.dataset.page)
   ) return;
 
   const winner = candidates.sort(TouchIntent.compareTapCandidates)[0];
@@ -465,7 +479,7 @@ function commitBestTileTap() {
   // later when they lift; a fresh pointerdown is required for the next tap.
   tileTapCandidates.clear();
   recordInteraction();
-  play(winner.animal);
+  play(winner.animal, { x: winner.lastX, y: winner.lastY });
 }
 
 function endTileTap(event) {
@@ -519,7 +533,7 @@ function bindTileInput(tile, animal) {
     if (event.pointerType === "touch") return;
     if (event.detail !== 0 && Date.now() < suppressTouchClicksUntil) return;
     recordInteraction();
-    play(animal);
+    play(animal, { x: event.clientX, y: event.clientY });
   });
 }
 
@@ -1162,9 +1176,10 @@ function showPage(page) {
     puzzleScreen.classList.remove("puzzle-complete");
     puzzleSuccess.classList.remove("playing");
     puzzleSuccess.hidden = true;
-    audioContext?.suspend();
+    if (page !== "fish") audioContext?.suspend();
   }
   positionPages();
+  syncFishTank();
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
   });
@@ -1415,8 +1430,12 @@ function playLesson(lesson) {
   update(started);
 }
 
-async function play(animal) {
+async function play(animal, point = null) {
   if (!overlay.hidden || !timeLimit.hidden) return;
+  if (animal.kind === "fish") {
+    playFish(animal.action, point);
+    return;
+  }
   if (animal.kind === "lesson") {
     playLesson(animal);
     return;
@@ -1628,15 +1647,19 @@ puzzleScreen.addEventListener("pointerdown", beginPuzzleDrag);
 document.addEventListener("pointermove", (event) => {
   updateTileTap(event);
   movePuzzlePiece(event);
+  moveFishFollower(event);
 }, { capture: true });
 document.addEventListener("pointerup", (event) => {
   endTileTap(event);
   endPuzzleDrag(event);
+  endFishFollower(event);
 }, { capture: true });
 document.addEventListener("pointercancel", (event) => {
   endTileTap(event);
   endPuzzleDrag(event);
+  endFishFollower(event);
 }, { capture: true });
+fishTankElement.addEventListener("pointerdown", beginFishFollower);
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });
@@ -1666,7 +1689,193 @@ document.addEventListener("visibilitychange", () => {
     releaseMedia();
     audioContext?.suspend();
     stopCounting();
+    syncFishTank();
   } else if (timeLimit.hidden) showIdleDim();
 });
+
+// ---------- Pet goldfish ----------
+
+function loadGoldfish() {
+  try {
+    return JSON.parse(localStorage.getItem(GOLDFISH_KEY));
+  } catch (_) {
+    return null;
+  }
+}
+
+function saveGoldfish(state) {
+  try {
+    localStorage.setItem(GOLDFISH_KEY, JSON.stringify(state));
+  } catch (_) {
+    // The fish still lives for this open session when storage is unavailable.
+  }
+}
+
+function createFishTank() {
+  const feedButton = document.getElementById("fish-feed");
+  const waterButton = document.getElementById("fish-water");
+  fishTank = FishTank.create({
+    root: fishTankElement,
+    feedButton,
+    waterButton,
+    load: loadGoldfish,
+    save: saveGoldfish,
+    sound: fishSounds,
+    say: (name) => speak(name),
+    reducedMotion,
+  });
+  bindTileInput(feedButton, { kind: "fish", action: "feed" });
+  bindTileInput(waterButton, { kind: "fish", action: "water" });
+  bindTileInput(fishTankElement, { kind: "fish", action: "tap" });
+}
+
+// The tank animates only while it is on screen and awake.
+function syncFishTank() {
+  if (!fishTank) return;
+  const showing = document.body.dataset.page === "fish" && idleDim.hidden && timeLimit.hidden
+    && overlay.hidden && !document.hidden;
+  if (showing) fishTank.activate();
+  else {
+    fishFollowers.clear();
+    fishTank.deactivate();
+    // The puzzle keeps the audio running, so the drain cannot play on there.
+    fishSoundNodes.forEach((node) => {
+      try { node.stop(); } catch (_) {}
+    });
+    fishSoundNodes.clear();
+  }
+}
+
+function playFish(action, point) {
+  if (!fishTank?.active) return;
+  if (action === "feed") fishTank.feed();
+  else if (action === "water") fishTank.changeWater();
+  // A mouse click that ends a lead is not also a tap.
+  else if (point && Date.now() - fishLeadEndedAt > 300) fishTank.tap(point.x, point.y);
+}
+
+// A finger moving across the water leads the fish; a resting one does not.
+function beginFishFollower(event) {
+  if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
+  if (event.button !== 0 || !fishTank?.active || inSafeArea(event.clientX, event.clientY)) return;
+  fishFollowers.set(event.pointerId, TouchIntent.beginCandidate(event));
+}
+
+function moveFishFollower(event) {
+  const candidate = fishFollowers.get(event.pointerId);
+  if (!candidate) return;
+  TouchIntent.updateCandidate(candidate, event);
+  // Past a tap's slop, so a touch is a tap or a lead, never both.
+  if (candidate.maxDistance <= TAP_SLOP_PX) return;
+  if (TouchIntent.looksLikeBroadContact(candidate, touchLimits)) {
+    // A lead that flattens into a palm lets the fish go.
+    dropFishFollower(event.pointerId);
+    return;
+  }
+  // A long, continuous lead is play too, so it must not dim the screen.
+  if (!candidate.leading || event.timeStamp - candidate.creditedAt > 1000) {
+    candidate.leading = true;
+    candidate.creditedAt = event.timeStamp;
+    recordInteraction();
+  }
+  fishTank.follow(event.clientX, event.clientY);
+}
+
+function dropFishFollower(pointerId) {
+  const candidate = fishFollowers.get(pointerId);
+  if (!candidate) return;
+  fishFollowers.delete(pointerId);
+  if (!candidate.leading) return;
+  fishLeadEndedAt = Date.now();
+  if (![...fishFollowers.values()].some((other) => other.leading)) fishTank.release();
+}
+
+function endFishFollower(event) {
+  dropFishFollower(event.pointerId);
+}
+
+let noiseBuffer = null;
+
+// Short, quiet tank sounds, made on the spot like the puzzle's click.
+function fishTone(type, from, to, duration, volume, delay = 0) {
+  if (!puzzleAudio()) return;
+  const start = audioContext.currentTime + delay;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(from, start);
+  oscillator.frequency.exponentialRampToValueAtTime(to, start + duration);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  oscillator.connect(gain).connect(audioContext.destination);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
+  trackFishSound(oscillator);
+}
+
+function fishNoise(duration, volume, { delay = 0, filter = "lowpass", frequency = 800, q = 1, wobble = 0 } = {}) {
+  if (!puzzleAudio()) return;
+  if (!noiseBuffer || noiseBuffer.sampleRate !== audioContext.sampleRate) {
+    noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate, audioContext.sampleRate);
+    const samples = noiseBuffer.getChannelData(0);
+    for (let index = 0; index < samples.length; index += 1) samples[index] = Math.random() * 2 - 1;
+  }
+  const start = audioContext.currentTime + delay;
+  const source = audioContext.createBufferSource();
+  source.buffer = noiseBuffer;
+  source.loop = true;
+  const shape = audioContext.createBiquadFilter();
+  shape.type = filter;
+  shape.frequency.value = frequency;
+  shape.Q.value = q;
+  const gain = audioContext.createGain();
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.linearRampToValueAtTime(volume, start + Math.min(0.25, duration / 4));
+  gain.gain.setValueAtTime(volume, start + duration * 0.7);
+  gain.gain.linearRampToValueAtTime(0.0001, start + duration);
+  source.connect(shape).connect(gain).connect(audioContext.destination);
+  if (wobble) {
+    // A gurgle: the filter bobs up and down.
+    const lfo = audioContext.createOscillator();
+    const depth = audioContext.createGain();
+    lfo.frequency.value = wobble;
+    depth.gain.value = frequency * 0.6;
+    lfo.connect(depth).connect(shape.frequency);
+    lfo.start(start);
+    lfo.stop(start + duration);
+  }
+  source.start(start);
+  source.stop(start + duration);
+  trackFishSound(source);
+}
+
+function trackFishSound(node) {
+  fishSoundNodes.add(node);
+  node.onended = () => fishSoundNodes.delete(node);
+}
+
+const fishSounds = {
+  gulp: () => {
+    fishTone("sine", 520, 170, 0.1, 0.13);
+    fishTone("sine", 380, 220, 0.06, 0.06, 0.09);
+  },
+  bubble: () => {
+    fishTone("sine", 320, 980, 0.11, 0.08);
+    fishTone("sine", 420, 1200, 0.09, 0.06, 0.13);
+  },
+  plip: () => fishTone("sine", 1300, 620, 0.07, 0.06),
+  sprinkle: () => {
+    for (let index = 0; index < 5; index += 1) {
+      fishNoise(0.035, 0.07, { delay: 0.1 + index * 0.09, filter: "bandpass", frequency: 5200, q: 3 });
+    }
+  },
+  happy: () => {
+    fishTone("sine", 660, 664, 0.14, 0.06);
+    fishTone("sine", 880, 884, 0.2, 0.06, 0.12);
+  },
+  drain: () => fishNoise(1.3, 0.09, { filter: "lowpass", frequency: 700, wobble: 9 }),
+  fill: () => fishNoise(1.6, 0.06, { filter: "bandpass", frequency: 1600, q: 0.7 }),
+};
 
 init();

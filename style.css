@@ -199,7 +199,8 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   min-height: 54px;
   border: 2px solid rgba(59, 53, 96, 0.14);
   border-radius: 999px;
-  padding: 10px 8px;
+  /* Narrow enough that seven labels fit the tablet's 800 px portrait width. */
+  padding: 10px 3px;
   background: rgba(255, 255, 255, 0.5);
   color: var(--ink);
   font: 600 1.05rem/1 inherit;
@@ -210,11 +211,13 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   background: var(--cream);
 }
 
-/* Too narrow for six labels in one row, as on a phone: show the pictures
+/* Too narrow for seven labels in one row, as on a phone: show the pictures
    only. The labels stay for screen readers. */
-@container (max-width: 640px) {
+@container (max-width: 690px) {
+  #page-tabs { gap: 4px; }
+
   #page-tabs button {
-    padding: 6px 2px;
+    padding: 6px 0;
     font-size: 1.6rem;
   }
 
@@ -844,3 +847,317 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
 #lesson-grid { max-width: 720px; margin: 0 auto; }
 #lesson-grid .lesson-art { width: 72%; max-height: 70%; aspect-ratio: 400 / 410; pointer-events: none; }
 #lesson-grid svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* ---------- Pet goldfish ---------- */
+
+/* Like the puzzle, the tank is a fixed play surface: no page scroll or pan,
+   so a finger dragging across the water leads the fish instead. */
+body[data-page="fish"] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: var(--play-height);
+  overflow: hidden;
+}
+
+body[data-page="fish"] #page-viewport { min-height: 0; }
+body[data-page="fish"] #pages { height: 100%; }
+
+#fish-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 8px var(--safe-edge) var(--safe-edge);
+  touch-action: none;
+}
+
+/* An id outranks .app-screen[hidden], so hide it here too. */
+#fish-screen[hidden],
+#fish-screen[inert] { display: none; }
+
+/* fish-tank.js reads this box's inner size; every layer fills it. */
+#fish-tank {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 6px solid #FFF6DA;
+  border-radius: 24px;
+  background: #8FD3DB;
+  box-shadow: 0 7px 0 rgba(59, 53, 96, 0.12);
+}
+
+#fish-tank > *,
+.tank-life > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.tank-scene,
+.tank-cloud {
+  width: 100%;
+  height: 100%;
+}
+
+.tank-leftovers,
+.tank-life {
+  inset: 0;
+}
+
+.tank-leftovers { transition: opacity 1.2s ease-in; }
+.tank-leftovers.draining { opacity: 0; }
+
+.tank-leftover {
+  position: absolute;
+  border: 1px solid rgba(59, 53, 96, 0.55);
+  border-radius: 2px;
+}
+
+/* The fish's own small canvas; app code only ever translates it. */
+.tank-fish,
+.tank-flake,
+.tank-thought {
+  will-change: transform;
+}
+
+.tank-flake {
+  border: 1px solid rgba(59, 53, 96, 0.6);
+  border-radius: 2px;
+}
+
+.tank-bubble {
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 34%, rgba(255, 255, 255, 0.8) 0 16%, rgba(255, 255, 255, 0.14) 22%);
+}
+
+.tank-ripple {
+  width: 64px;
+  height: 64px;
+  border: 3px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+/* Painted small once and stretched, which makes it soft. Only the opacity,
+   which follows how dirty the water is, ever changes. */
+.tank-cloud {
+  opacity: 0;
+  transition: opacity 1.4s ease;
+  will-change: opacity;
+}
+
+/* While the water is changed, this covers the tank down to the water line. */
+.tank-air {
+  display: none;
+  width: 100%;
+  background: linear-gradient(#F3FAFA, #E3F2F3);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.95);
+  will-change: transform;
+}
+
+.changing-water .tank-air { display: block; }
+
+#fish-tank > .tank-pour {
+  left: 18%;
+  width: clamp(14px, 4%, 28px);
+  height: 88%;
+  border-radius: 0 0 14px 14px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.25), rgba(214, 243, 255, 0.95), rgba(255, 255, 255, 0.25));
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.pouring .tank-pour { opacity: 1; }
+
+/* What the fish needs, in a bubble over its head: the icon of the button
+   that helps. */
+.tank-thought {
+  opacity: 0;
+  transition: opacity 0.3s;
+  --thought-size: 56px;
+}
+
+.tank-thought.showing { opacity: 1; }
+
+.tank-thought > span {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: var(--thought-size);
+  aspect-ratio: 1;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  transform: translateX(-50%);
+  animation: thought-bob 1.8s ease-in-out infinite;
+}
+
+.tank-thought:not(.showing) > span { animation-play-state: paused; }
+
+.tank-thought > span::after {
+  position: absolute;
+  left: 18%;
+  bottom: -14px;
+  width: 11px;
+  height: 11px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: #FFF;
+  content: "";
+}
+
+.tank-thought img { width: 72%; }
+
+@keyframes thought-bob {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -6px); }
+}
+
+/* The food shaker tips over the water and shakes when Feed is tapped. */
+.tank-shaker {
+  width: 58px;
+  opacity: 0;
+  transform: translate(-50%, -70%) rotate(130deg);
+}
+
+.tank-shaker.shaking { animation: shaker-shake 0.85s ease-in-out; }
+
+@keyframes shaker-shake {
+  0% { opacity: 0; transform: translate(-50%, -90%) rotate(120deg); }
+  15% { opacity: 1; transform: translate(-50%, -40%) rotate(155deg); }
+  32% { transform: translate(-50%, -34%) rotate(170deg); }
+  48% { transform: translate(-50%, -40%) rotate(150deg); }
+  64% { transform: translate(-50%, -34%) rotate(170deg); }
+  84% { opacity: 1; transform: translate(-50%, -40%) rotate(155deg); }
+  100% { opacity: 0; transform: translate(-50%, -90%) rotate(120deg); }
+}
+
+.fish-controls {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  gap: 14px;
+}
+
+.fish-button {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 8px 20px 8px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--butter);
+  box-shadow: 0 4px 0 var(--ink-shadow);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.05;
+  text-align: left;
+  appearance: none;
+  cursor: pointer;
+  /* Their own layers, so starting and stopping the glow never redraws the
+     page around them. */
+  will-change: transform;
+}
+
+/* The class's display outranks the UA's [hidden] rule. */
+.fish-button[hidden] { display: none; }
+
+#fish-water { background: #CDEBF7; }
+/* One word: Change water gives way by wrapping instead. */
+#fish-feed { flex-shrink: 0; }
+.fish-button.arriving { animation: fish-button-arrive 0.45s ease-out; }
+
+.fish-button img {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  pointer-events: none;
+}
+
+.fish-button:active { transform: scale(0.95); }
+
+.fish-button:focus-visible {
+  outline: 4px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* The button that meets the fish's need breathes, with a ring around it. */
+.fish-button.wanted { animation: fish-button-wanted 1.5s ease-in-out infinite; }
+
+.fish-button::after {
+  position: absolute;
+  inset: 0;
+  border: 4px solid var(--ink);
+  border-radius: 999px;
+  opacity: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.fish-button.wanted::after { animation: fish-button-ring 1.5s ease-in-out infinite; }
+
+@keyframes fish-button-wanted {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes fish-button-ring {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes fish-button-arrive {
+  0% { opacity: 0; transform: translateY(16px) scale(0.8); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* A phone: smaller pictures, so Feed and Change water fit side by side. */
+@media (max-width: 460px) {
+  .fish-controls { gap: 10px; }
+  .fish-button {
+    gap: 6px;
+    padding: 8px 12px 8px 8px;
+    font-size: 1.15rem;
+  }
+  .fish-button img { width: 44px; height: 44px; }
+}
+
+/* A sideways phone has more width than height: buttons go beside the tank. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #fish-screen { flex-direction: row; }
+  .fish-controls { flex-direction: column; }
+  .fish-button {
+    flex: 0 1 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-height: 0;
+    text-align: center;
+    min-width: 96px;
+    padding: 6px 10px;
+    font-size: 1rem;
+    border-radius: 24px;
+  }
+  .fish-button img { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fish-button.wanted,
+  .fish-button.wanted::after,
+  .tank-thought > span,
+  .fish-button.arriving { animation: none; }
+  .fish-button.wanted::after { opacity: 0.55; }
+  .tank-shaker.shaking { animation-duration: 0.01s; }
+}
