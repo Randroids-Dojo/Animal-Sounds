@@ -10,8 +10,8 @@
 // - The water clouds over on its own in about four days.
 // - Water this cloudy makes the fish sick over a few hours. Clean water makes
 //   it well again within seconds, so a child sees the fix work.
-// - The fish grows over months, but only while it is fed and well. It starts as
-//   a small bronze baby and turns gold as it grows, as real goldfish do.
+// - The fish grows over months, but only while it is fed and well: from a
+//   small orange baby with a short tail to a big one with a flowing fan tail.
 // - It never dies. The worst it gets is sick and hungry, and care undoes both.
 (function exposeGoldfish(globalScope) {
   const MINUTE = 60 * 1000;
@@ -42,9 +42,6 @@
     // Growth follows 1 - e^(-days / growthDays): about 90% grown by 100 days.
     growthDays: 45,
     babySize: 0.38,
-    // Bronze until this many days of good care, gold by the second number.
-    goldFromDays: 5,
-    goldByDays: 50,
     // Catching up on a very long absence stops here.
     maxCatchUp: 400 * DAY,
     maxLeftovers: 24,
@@ -138,8 +135,6 @@
     return {
       // Of its full-grown length.
       size: RULES.babySize + (1 - RULES.babySize) * (1 - Math.exp(-days / RULES.growthDays)),
-      // 0 is a bronze baby, 1 is gold.
-      gold: smoothstep(RULES.goldFromDays, RULES.goldByDays, days),
       // How far its fins have grown into a flowing fan tail.
       fins: smoothstep(10, 150, days),
       fullness: 1 - state.hunger,

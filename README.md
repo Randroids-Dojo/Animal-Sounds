@@ -100,8 +100,8 @@ The videos come from this YouTube playlist:
     dirty. Fresh water makes it well again in about 15 seconds, before the
     45-second idle dim, and it eats again straight away.
   - It grows over months, but only while it is fed and well: from a small
-    bronze baby to a gold fish with a long fan tail, about 90% grown after 100
-    days of good care. It never dies; neglect only pauses its growth until it
+    orange baby with a short tail to a big orange fish with a long fan tail,
+    about 90% grown after 100 days of good care. It never dies; neglect only pauses its growth until it
     is cared for again.
   - What it needs shows over its head, one thing at a time, as the icon of the
     button that helps, and that button breathes: water when sick in dirty
@@ -445,9 +445,9 @@ dim the screen, a mouse drag whose closing click is not a tap, a tap on a
 fish that has swum on, saves across reloads, a fish that is hungry and cloudy
 overnight, sick after four days, eating as soon as its water is changed and
 well soon after, never asking for water while Change water is hidden, grown
-and gold after months, and that the tank, its looping animations and its
-sounds stop when the tab changes (including to the puzzle), dims, locks or
-hides. It also checks five phone and tablet layouts, buttons whose picture
+with a fan tail after months and orange at every age, and that the tank, its
+looping animations and its sounds stop when the tab changes (including to the
+puzzle), dims, locks or hides. It also checks five phone and tablet layouts, buttons whose picture
 and word fit inside them, and that the thought bubble stays in the water.
 `ONLY=care,time` runs some parts.
 Run `node tests/browser-goldfish-paint.cjs` to count the tank's drawing in a

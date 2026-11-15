@@ -562,16 +562,17 @@ async function checkTime(browser) {
       await fish.context.close();
     }
   }
-  // Grown over months: bigger and gold.
+  // Grown over months: bigger, with a fan tail, and orange at every age.
   {
     const baby = await openFish(browser);
     const babyLength = (await baby.debug()).fish.length;
+    assert.equal((await baby.debug()).palette.back, "rgb(255, 122, 31)", "a new baby is already orange");
     await baby.context.close();
     const fish = await openFish(browser, { saved: (now) => ({ v: 1, bornAt: now - 150 * 864e5, updatedAt: now, hunger: 0.1, dirt: 0, health: 1, goodMs: 110 * 864e5, leftovers: 0 }) });
     try {
       const value = await fish.debug();
       assert.ok(value.fish.length > babyLength * 2.2, `grown: ${value.fish.length}px, from ${babyLength}px`);
-      assert.equal(value.look.gold, 1, "and gold");
+      assert.equal(value.palette.back, "rgb(255, 122, 31)", "orange");
       assert.ok(value.look.fins > 0.6, "with a long fan tail");
       await fish.page.screenshot({ path: path.join(evidence, "grown.png") });
       results.lengths = { baby: babyLength, grown: value.fish.length };

@@ -46,20 +46,14 @@ const FishTank = (() => {
     return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
   }
 
-  // Bronze baby to gold adult, then toward a pale, washed-out sick fish.
+  // Goldfish orange at every age, washing out toward pale when sick.
   function fishPalette(look) {
-    const sick = look.sickness * 0.7;
-    const tone = (bronze, gold, pale) => {
-      const healthy = mixColor(bronze, gold, look.gold);
-      const [r, g, b] = healthy.match(/\d+/g).map(Number);
-      const hex = `#${[r, g, b].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
-      return mixColor(hex, pale, sick);
-    };
+    const tone = (orange, pale) => mixColor(orange, pale, look.sickness * 0.7);
     return {
-      back: tone("#8C7A4F", "#F0742A", "#B9B79C"),
-      belly: tone("#D3C493", "#FFC75E", "#DEDCC6"),
-      fin: tone("#B9A774", "#FFA24A", "#CFCCB4"),
-      ray: tone("#E2D6AE", "#FFD28A", "#E7E5D2"),
+      back: tone("#FF7A1F", "#B9B79C"),
+      belly: tone("#FFC24D", "#DEDCC6"),
+      fin: tone("#FF9E3D", "#CFCCB4"),
+      ray: tone("#FFD28A", "#E7E5D2"),
     };
   }
 
@@ -677,7 +671,7 @@ const FishTank = (() => {
     function refreshLook() {
       look = Goldfish.looks(state, now());
       if (geometry) sizeFish();
-      const key = `${look.gold.toFixed(2)}|${look.sickness.toFixed(2)}|${fish.length}|${look.fullness.toFixed(1)}`;
+      const key = `${look.sickness.toFixed(2)}|${fish.length}|${look.fullness.toFixed(1)}`;
       if (key !== paletteKey) {
         paletteKey = key;
         palette = fishPalette(look);

@@ -21,7 +21,7 @@ function careFor(days, feedHours = [8, 12, 17]) {
   return fish;
 }
 
-test("a new fish is a small, healthy, hungry bronze baby in clean water", () => {
+test("a new fish is a small, healthy, hungry baby in clean water", () => {
   const fish = Goldfish.create(T0);
   const looks = Goldfish.looks(fish, T0);
   assert.equal(looks.hungry, true, "the first thing to do is feed it");
@@ -29,7 +29,7 @@ test("a new fish is a small, healthy, hungry bronze baby in clean water", () => 
   assert.equal(looks.needsWater, false);
   assert.equal(looks.cloud, 0);
   assert.equal(looks.size, RULES.babySize);
-  assert.equal(looks.gold, 0);
+  assert.equal(looks.fins, 0, "with a short tail");
   assert.equal(looks.ageDays, 0);
 });
 
@@ -117,7 +117,7 @@ test("one-second ticks and one long jump end up in the same place", () => {
   }
 });
 
-test("it grows over months with care, turning from bronze to gold", () => {
+test("it grows over months with care, its tail growing into a fan", () => {
   const sizes = [0, 7, 30, 60, 120, 240].map((days) => [days, Goldfish.looks(careFor(days), T0 + days * DAY)]);
   for (let index = 1; index < sizes.length; index += 1) {
     assert.ok(sizes[index][1].size > sizes[index - 1][1].size, `still growing at ${sizes[index][0]} days`);
@@ -127,8 +127,6 @@ test("it grows over months with care, turning from bronze to gold", () => {
   assert.ok(at[30].size > 0.55 && at[30].size < 0.75, `a month old is half grown: ${at[30].size}`);
   assert.ok(at[120].size > 0.85, `four months old is nearly grown: ${at[120].size}`);
   assert.ok(at[240].size < 1, "never past full size");
-  assert.ok(at[7].gold < 0.1, "a week old is still bronze");
-  assert.ok(at[60].gold > 0.9, "two months old is gold");
   assert.ok(at[120].fins > at[30].fins);
   assert.equal(at[120].ageDays, 120);
 });
