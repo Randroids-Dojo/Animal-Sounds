@@ -272,6 +272,13 @@ async function checkCare(browser) {
     assert.ok(value.look.size < 0.4, "it starts as a baby");
     assert.equal(await page.evaluate(() => countingSince), null, "opening the tab does not count as play");
 
+    // Tapped, a hungry fish says so first.
+    value = await fish.debug();
+    await fish.tapPoint(await fish.onScreen(value.fish));
+    value = await fish.debug();
+    assert.equal(value.line?.fact, "hungry", `a hungry fish talks about being hungry: ${JSON.stringify(value.line)}`);
+    assert.equal((await page.evaluate(() => window.media)).at(-1), value.line.audio, "in its recording");
+
     await fish.tap("#fish-feed");
     assert.notEqual(await page.evaluate(() => countingSince), null, "feeding counts as play");
     value = await fish.debug();
@@ -373,8 +380,29 @@ async function checkPlay(browser) {
     const moved = Math.hypot((await fish.debug()).fish.x - value.fish.x, (await fish.debug()).fish.y - value.fish.y);
     assert.ok(moved > Math.max(value.fish.length * 0.6, 34), `the fish had swum out from under the finger: ${Math.round(moved)}px`);
     await wait(300);
-    assert.ok((await page.evaluate(() => window.media)).includes("audio/goldfish.mp3"), "tapping the fish says Goldfish");
+    const media = () => page.evaluate(() => window.media.slice());
+    const opening = (await fish.debug()).line;
+    assert.equal(opening?.fact, "happy", `a well, fed fish says it is happy: ${JSON.stringify(opening)}`);
+    assert.equal((await media()).at(-1), opening.audio, "tapping the fish says how it is doing");
     assert.ok(await page.locator(".tank-bubble").count() > 0, "and it blows bubbles");
+    // Tapped again while it talks: a wiggle, but the line is not cut short.
+    const heard = (await media()).length;
+    await fish.tapPoint(await fish.onScreen((await fish.debug()).fish));
+    assert.equal((await media()).length, heard, "a second tap does not cut the line short");
+    assert.equal((await fish.debug()).line.id, opening.id);
+    await page.waitForFunction(() => !fishTalking, null, { timeout: 6000 });
+    // Each tap after that says something new.
+    const said = [opening.id];
+    for (let tap = 0; tap < 4; tap += 1) {
+      await fish.tapPoint(await fish.onScreen((await fish.debug()).fish));
+      const line = (await fish.debug()).line;
+      assert.notEqual(line.id, said.at(-1), `tap ${tap + 2} says something different`);
+      assert.equal((await media()).at(-1), line.audio);
+      said.push(line.id);
+      await page.waitForFunction(() => !fishTalking, null, { timeout: 6000 });
+    }
+    assert.ok(new Set(said).size >= 4, `five taps, at least four different lines: ${said}`);
+    assert.ok(!(await media()).some((entry) => entry.startsWith("speech:")), "all recordings, no speech fallback");
 
     // The ship, with the fish held away from it.
     const away = await fish.onScreen({ x: geometry.width * 0.15, y: geometry.surface + 60 });

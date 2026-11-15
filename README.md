@@ -107,9 +107,15 @@ The videos come from this YouTube playlist:
     button that helps, and that button breathes: water when sick in dirty
     water, then food when hungry, then water when the tank is cloudy. It only
     asks for water while Change water is showing.
-  - Tap the fish to hear "Goldfish" and see bubbles; tap the ship to hear
-    "Pirate ship" as bubbles pour out of a porthole; tap the water and the fish
-    comes to look. A finger moving across the water leads the fish; a resting
+  - Tap the fish and it blows bubbles and says how it is doing, in Randy's
+    voice (`fish-talk.js`): sick, getting better, hungry, full with food left
+    over, cloudy water, just ate, happy, its age ("two weeks old", "three
+    months old"), its size, or a hello. How it is doing comes every other
+    tap; age, size and hellos fill the taps between. Each kind takes its turn
+    and each phrasing is used before any repeats, so no line comes twice in a
+    row. A tap while it is still talking only makes it wiggle, so lines are
+    never cut short. Tap the ship to hear "Pirate ship" as bubbles pour out
+    of a porthole; tap the water and the fish comes to look. A finger moving across the water leads the fish; a resting
     one does not, and a leading finger that flattens into a palm lets go.
     Taps use the same fingertip rules as the tiles. Taps, Feed, Change water
     and leading (credited every second, so a long lead never dims the screen)
@@ -126,8 +132,13 @@ The videos come from this YouTube playlist:
     tank's sounds, finishes a water change, and eats or settles any flakes
     still falling.
   - Sounds are made on the spot with Web Audio, like the puzzle's click. The
-    two names are recordings in Randy's voice (`audio/goldfish.mp3`,
-    `audio/pirate-ship.mp3`). The fish and its icons are original artwork.
+    voice is recorded in Randy's voice: `audio/goldfish.mp3`,
+    `audio/pirate-ship.mp3`, and the fish's 49 lines in `audio/fish/`. Change or
+    add a line in `fish-talk.js`, then run
+    `../ChannelKnowledgeBase/.venv/bin/python scripts/build-fish-voice.py` to
+    record the missing ones (or pass ids to redo some). It renders two takes,
+    checks each with Whisper, and keeps the right one closest to the pitch of
+    the other names. The fish and its icons are original artwork.
 - The Puzzle tab stays in portrait when the device turns. It requests a native
   orientation lock where supported, and counter-rotates its play surface in
   kiosk WebViews that reject the lock. Piece sizes and completed slots stay
@@ -401,7 +412,10 @@ a board spanning the screen less 8 px, tray pieces clear of the grip band, and
 pieces that grow when picked up and shrink back where they are put down. It
 also plays twelve rounds to check that kinds take turns, each on its own
 backdrop, and that every picture and recording loads.
-`node --test tests/*.test.js` includes the cut geometry: shared cuts, flat
+`node --test tests/*.test.js` includes the fish's care rules
+(`tests/goldfish.test.js`) and what it says (`tests/fish-talk.test.js`: every
+line recorded, age wording, lines that follow its state, no line twice in a
+row over 3000 random taps). It also includes the cut geometry: shared cuts, flat
 borders, knob size, and that every knob's head is wider than its neck. It also
 sweeps the layout solver across screen sizes, and checks the puzzle deck and
 that every puzzle picture has its art and name recording.
@@ -439,7 +453,9 @@ Run `node tests/browser-goldfish.cjs` with the same setup to play the Fish tab
 with real touches: a hungry new fish eats each sprinkle and refuses food once
 full, leftovers cloud the water until Change water appears, and every frame of
 the water change keeps the fish under the water line. It checks the fish, ship
-and water taps and their recordings, leading with a moving finger but not a
+and water taps and their recordings: a hungry fish says it is hungry, a happy
+one that it is happy, a second tap does not cut a line short, and each tap
+after says something new. It checks leading with a moving finger but not a
 resting one, a lead that turns into a palm, a minute-long lead that must not
 dim the screen, a mouse drag whose closing click is not a tap, a tap on a
 fish that has swum on, saves across reloads, a fish that is hungry and cloudy

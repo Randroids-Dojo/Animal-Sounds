@@ -138,6 +138,8 @@ let fishTank = null;
 // Touches on the water that have moved far enough to lead the fish.
 const fishFollowers = new Map();
 let fishLeadEndedAt = 0;
+let fishTalking = false;
+let fishTalkTimer = null;
 // The tank's sounds still playing, so leaving the tank can stop them.
 const fishSoundNodes = new Set();
 
@@ -1721,12 +1723,29 @@ function createFishTank() {
     load: loadGoldfish,
     save: saveGoldfish,
     sound: fishSounds,
-    say: (name) => speak(name),
+    say: sayForFish,
+    talking: () => fishTalking,
     reducedMotion,
   });
   bindTileInput(feedButton, { kind: "fish", action: "feed" });
   bindTileInput(waterButton, { kind: "fish", action: "water" });
   bindTileInput(fishTankElement, { kind: "fish", action: "tap" });
+}
+
+// A line from the tank, in Randy's voice. Anything that stops speech (another
+// line, leaving the tab, dimming) ends it; the timer covers a recording that
+// never reports its end.
+function sayForFish(line) {
+  clearTimeout(fishTalkTimer);
+  fishTalking = true;
+  fishTalkTimer = setTimeout(() => { fishTalking = false; }, 8000);
+  speak(line.text, {
+    audioPath: line.audio,
+    onStop: () => {
+      clearTimeout(fishTalkTimer);
+      fishTalking = false;
+    },
+  });
 }
 
 // The tank animates only while it is on screen and awake.

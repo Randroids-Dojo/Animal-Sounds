@@ -13,7 +13,7 @@ function careFor(days, feedHours = [8, 12, 17]) {
   for (let day = 0; day < days; day += 1) {
     for (const hour of feedHours) {
       Goldfish.advance(fish, T0 + day * DAY + hour * HOUR);
-      while (Goldfish.eat(fish));
+      while (Goldfish.eat(fish, T0 + day * DAY + hour * HOUR));
     }
     Goldfish.changeWater(fish);
   }
@@ -181,5 +181,5 @@ test("saved state is restored safely", () => {
     assert.deepEqual(Goldfish.restore(junk, T0), Goldfish.create(T0), `starts over from ${JSON.stringify(junk)}`);
   }
   const wild = Goldfish.restore({ v: 1, bornAt: T0, updatedAt: T0 - DAY, hunger: 9, dirt: -3, health: "x", goodMs: -1, leftovers: 1e9 }, T0);
-  assert.deepEqual(wild, { v: 1, bornAt: T0, updatedAt: T0, hunger: 1, dirt: 0, health: 1, goodMs: 0, leftovers: RULES.maxLeftovers });
+  assert.deepEqual(wild, { v: 1, bornAt: T0, updatedAt: T0, hunger: 1, dirt: 0, health: 1, goodMs: 0, leftovers: RULES.maxLeftovers, ateAt: 0 });
 });

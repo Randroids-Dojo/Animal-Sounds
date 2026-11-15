@@ -521,7 +521,8 @@ const FishTank = (() => {
     ctx.restore();
   }
 
-  function create({ root, feedButton, waterButton, load, save, sound = {}, say = () => {}, now = () => Date.now(), random = Math.random, reducedMotion = () => false }) {
+  // say(line) speaks a { text, audio } line; talking() is true while one plays.
+  function create({ root, feedButton, waterButton, load, save, sound = {}, say = () => {}, talking = () => false, now = () => Date.now(), random = Math.random, reducedMotion = () => false }) {
     const scene = root.querySelector(".tank-scene");
     const leftoverLayer = root.querySelector(".tank-leftovers");
     const life = root.querySelector(".tank-life");
@@ -557,6 +558,8 @@ const FishTank = (() => {
     let hoverUntil = 0;
     let nextShipBubbles = 0;
     let thoughtShown = "";
+    const talker = FishTalk.createTalker(random);
+    let lastLine = null;
     let arrivedTimer = null;
     const flakes = [];
     const fish = {
@@ -874,7 +877,7 @@ const FishTank = (() => {
         const mouth = mouthPoint();
         for (const flake of [...flakes]) {
           if (Math.hypot(flake.x - mouth.x, flake.y - mouth.y) > Math.max(14, L * 0.2)) continue;
-          if (!Goldfish.eat(state)) break;
+          if (!Goldfish.eat(state, now())) break;
           removeFlake(flake);
           fish.mouth = 1;
           sound.gulp?.();
@@ -1019,7 +1022,7 @@ const FishTank = (() => {
       if (draining) finishDrain(false);
       for (const flake of [...flakes]) {
         removeFlake(flake);
-        if (!refusesFood() && Goldfish.eat(state)) continue;
+        if (!refusesFood() && Goldfish.eat(state, now())) continue;
         Goldfish.leftover(state);
         if (state.leftovers > leftoverLayer.childElementCount) addLeftover(state.leftovers - 1, flake.x);
       }
@@ -1166,13 +1169,20 @@ const FishTank = (() => {
           setTimeout(() => active && bubble(mouth.x, mouth.y - index * 4, 6 + random() * 6), index * 140);
         }
         sound.bubble?.();
-        say("Goldfish");
+        // It says how it is doing, something new each time. A line still
+        // playing is not cut short; the fish just wiggles.
+        if (!talking()) {
+          Goldfish.advance(state, now());
+          refreshLook();
+          lastLine = FishTalk.next(talker, look, state, now());
+          say(lastLine);
+        }
         return "fish";
       }
       if (hitShip(x, y)) {
         shipBubbles(7);
         sound.bubble?.();
-        say("Pirate ship");
+        say({ text: "Pirate ship", audio: "audio/pirate-ship.mp3" });
         return "ship";
       }
       ripple(x, y);
@@ -1224,6 +1234,7 @@ const FishTank = (() => {
         following: Boolean(followPoint),
         coming: Boolean(come),
         thought: thoughtShown,
+        line: lastLine,
         look: { ...look },
         geometry: geometry && { ...geometry, ship: { ...geometry.ship } },
       }),

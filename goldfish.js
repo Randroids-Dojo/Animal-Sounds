@@ -56,7 +56,7 @@
 
   // A new fish is hungry, so the first thing to do is feed it.
   function create(now = Date.now()) {
-    return { v: 1, bornAt: now, updatedAt: now, hunger: 0.6, dirt: 0, health: 1, goodMs: 0, leftovers: 0 };
+    return { v: 1, bornAt: now, updatedAt: now, hunger: 0.6, dirt: 0, health: 1, goodMs: 0, leftovers: 0, ateAt: 0 };
   }
 
   // Saved state can be missing, old, or edited by hand. Times are kept even
@@ -75,6 +75,8 @@
       health: clamp01(finite(saved.health, 1)),
       goodMs: Math.max(0, finite(saved.goodMs, 0)),
       leftovers: Math.max(0, Math.min(RULES.maxLeftovers, Math.floor(finite(saved.leftovers, 0)))),
+      // When it last ate a flake, or 0.
+      ateAt: Math.max(0, finite(saved.ateAt, 0)),
     };
   }
 
@@ -107,9 +109,10 @@
     return state.hunger >= RULES.eatsFrom;
   }
 
-  function eat(state) {
+  function eat(state, now = Date.now()) {
     if (!wantsFood(state)) return false;
     state.hunger = clamp01(state.hunger - RULES.flakeFood);
+    state.ateAt = now;
     return true;
   }
 
