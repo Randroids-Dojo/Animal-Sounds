@@ -153,14 +153,16 @@ async function checkLayout(browser, viewport) {
     await wait(400);
     await fish.page.screenshot({ path: path.join(evidence, `${viewport.label.replace(/\s+/g, "-")}.png`) });
     const layout = await fish.page.evaluate(() => {
-      // Measure the buttons at rest: arrived, and not mid-breath.
+      // Measure the buttons arrived and at their biggest: the breath peaks
+      // halfway through its loop.
       document.getAnimations().forEach((animation) => {
-        if (animation.effect.getTiming().iterations !== Infinity) {
+        const timing = animation.effect.getTiming();
+        if (timing.iterations !== Infinity) {
           animation.finish();
           return;
         }
         animation.pause();
-        animation.currentTime = 0;
+        animation.currentTime = timing.duration / 2;
       });
       const edge = safeEdge();
       const rect = (element) => element.getBoundingClientRect();

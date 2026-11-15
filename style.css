@@ -1042,6 +1042,8 @@ body[data-page="fish"] #pages { height: 100%; }
   flex: none;
   justify-content: center;
   gap: 14px;
+  /* Room for the glow's breath, so a button never grows into the grip band. */
+  padding: 0 4px 4px;
 }
 
 .fish-button {
