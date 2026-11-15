@@ -1716,10 +1716,13 @@ function saveGoldfish(state) {
 function createFishTank() {
   const feedButton = document.getElementById("fish-feed");
   const waterButton = document.getElementById("fish-water");
+  const ringsButton = document.getElementById("fish-rings");
   fishTank = FishTank.create({
     root: fishTankElement,
     feedButton,
     waterButton,
+    ringsButton,
+    screen: document.getElementById("fish-screen"),
     load: loadGoldfish,
     save: saveGoldfish,
     sound: fishSounds,
@@ -1729,6 +1732,7 @@ function createFishTank() {
   });
   bindTileInput(feedButton, { kind: "fish", action: "feed" });
   bindTileInput(waterButton, { kind: "fish", action: "water" });
+  bindTileInput(ringsButton, { kind: "fish", action: "rings" });
   bindTileInput(fishTankElement, { kind: "fish", action: "tap" });
 }
 
@@ -1769,6 +1773,7 @@ function playFish(action, point) {
   if (!fishTank?.active) return;
   if (action === "feed") fishTank.feed();
   else if (action === "water") fishTank.changeWater();
+  else if (action === "rings") fishTank.startRings();
   // A mouse click that ends a lead is not also a tap.
   else if (point && Date.now() - fishLeadEndedAt > 300) fishTank.tap(point.x, point.y);
 }
@@ -1893,6 +1898,16 @@ const fishSounds = {
     fishTone("sine", 660, 664, 0.14, 0.06);
     fishTone("sine", 880, 884, 0.2, 0.06, 0.12);
   },
+  // Through a ring: a chime that climbs a scale as the score goes up.
+  ring: (score) => {
+    const steps = [0, 2, 4, 5, 7, 9, 11, 12];
+    const frequency = 587.33 * 2 ** (steps[(score - 1) % steps.length] / 12);
+    fishTone("sine", frequency, frequency * 1.01, 0.22, 0.1);
+    fishTone("sine", frequency * 2, frequency * 2.02, 0.16, 0.04, 0.05);
+  },
+  // Time ran out: a soft, falling note, not a buzzer.
+  miss: () => fishTone("triangle", 392, 262, 0.35, 0.07),
+  best: () => [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => fishTone("sine", frequency, frequency, 0.3, 0.08, 0.35 + index * 0.12)),
   drain: () => fishNoise(1.3, 0.09, { filter: "lowpass", frequency: 700, wobble: 9 }),
   fill: () => fishNoise(1.6, 0.06, { filter: "bandpass", frequency: 1600, q: 0.7 }),
 };

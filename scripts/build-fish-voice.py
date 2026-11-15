@@ -47,7 +47,8 @@ def pitch(x, rate=16000):
     return float(np.median(found)) if found else 0.0
 
 
-NUMBERS = "zero one two three four five six seven eight nine ten eleven".split()
+NUMBERS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen "
+           "sixteen seventeen eighteen nineteen twenty").split()
 
 
 def words(text):

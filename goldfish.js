@@ -56,7 +56,7 @@
 
   // A new fish is hungry, so the first thing to do is feed it.
   function create(now = Date.now()) {
-    return { v: 1, bornAt: now, updatedAt: now, hunger: 0.6, dirt: 0, health: 1, goodMs: 0, leftovers: 0, ateAt: 0 };
+    return { v: 1, bornAt: now, updatedAt: now, hunger: 0.6, dirt: 0, health: 1, goodMs: 0, leftovers: 0, ateAt: 0, ringsBest: 0 };
   }
 
   // Saved state can be missing, old, or edited by hand. Times are kept even
@@ -77,6 +77,8 @@
       leftovers: Math.max(0, Math.min(RULES.maxLeftovers, Math.floor(finite(saved.leftovers, 0)))),
       // When it last ate a flake, or 0.
       ateAt: Math.max(0, finite(saved.ateAt, 0)),
+      // The most rings swum through in one game.
+      ringsBest: Math.max(0, Math.floor(finite(saved.ringsBest, 0))),
     };
   }
 

@@ -46,6 +46,12 @@ const FishTank = (() => {
     return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
   }
 
+  function svgNode(name, attributes) {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+    Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
+    return node;
+  }
+
   // Goldfish orange at every age, washing out toward pale when sick.
   function fishPalette(look) {
     const tone = (orange, pale) => mixColor(orange, pale, look.sickness * 0.7);
@@ -522,7 +528,7 @@ const FishTank = (() => {
   }
 
   // say(line) speaks a { text, audio } line; talking() is true while one plays.
-  function create({ root, feedButton, waterButton, load, save, sound = {}, say = () => {}, talking = () => false, now = () => Date.now(), random = Math.random, reducedMotion = () => false }) {
+  function create({ root, feedButton, waterButton, ringsButton, screen, load, save, sound = {}, say = () => {}, talking = () => false, now = () => Date.now(), random = Math.random, reducedMotion = () => false }) {
     const scene = root.querySelector(".tank-scene");
     const leftoverLayer = root.querySelector(".tank-leftovers");
     const life = root.querySelector(".tank-life");
@@ -533,6 +539,9 @@ const FishTank = (() => {
     const thoughtIcon = thought.querySelector("img");
     const shaker = root.querySelector(".tank-shaker");
     const fishContext = fishCanvas.getContext("2d");
+    const scoreBoard = root.querySelector(".tank-score");
+    const results = root.querySelector(".tank-results");
+    const ringsBest = ringsButton.querySelector(".fish-rings-best");
     paintCloud(cloud, seeded(11));
 
     // The tank's size follows the screen, the header and the buttons.
@@ -559,6 +568,9 @@ const FishTank = (() => {
     // nearest left it dithering between two flakes on either side of it.
     let chase = null;
     let flakeCount = 0;
+    // The rings game, while one is on: { score, ring, nextAt, first }.
+    let game = null;
+    let resultsUntil = 0;
     let hoverUntil = 0;
     let nextShipBubbles = 0;
     let thoughtShown = "";
@@ -699,6 +711,12 @@ const FishTank = (() => {
       }
       root.dataset.sick = String(look.sick);
       root.setAttribute("aria-label", describe());
+      // A fish sick in dirty water is too poorly to play.
+      const canPlay = !refusesFood() && !draining;
+      if (ringsButton.hidden === canPlay) ringsButton.hidden = !canPlay;
+      const best = state.ringsBest ? String(state.ringsBest) : "";
+      if (ringsBest.textContent !== best) ringsBest.textContent = best;
+      ringsBest.hidden = !best;
     }
 
     function describe() {
@@ -720,7 +738,7 @@ const FishTank = (() => {
     // is only asked for while Change water is showing. The matching button
     // glows.
     function need() {
-      if (draining) return "";
+      if (draining || game) return "";
       if (refusesFood()) return "water";
       if (look.hungry && !flakes.length) return "food";
       if (look.needsWater && !look.hungry) return "water";
@@ -729,7 +747,7 @@ const FishTank = (() => {
 
     function showThought() {
       const wanted = need();
-      const busy = fish.wiggleUntil > clock || followPoint || come;
+      const busy = fish.wiggleUntil > clock || followPoint || come || game || resultsUntil > clock;
       const shown = busy ? "" : wanted;
       if (shown !== thoughtShown) {
         thoughtShown = shown;
@@ -821,13 +839,16 @@ const FishTank = (() => {
       // A moving target's own speed, added so the fish keeps up with it.
       let carry = 0;
       let mouthSide = 0;
-      const eating = look.wantsFood && !refusesFood() && flakes.length > 0;
+      const canEat = look.wantsFood && !refusesFood() && flakes.length > 0;
+      // In a rings game it swims where it is sent and only gulps the flakes
+      // it meets on the way.
+      const eating = canEat && !game;
       if (followPoint) {
         target = followPoint;
-        pace = 1.5;
+        pace = game ? 1.7 : 1.5;
       } else if (come) {
         target = come;
-        pace = 1.25;
+        pace = game ? 1.6 : 1.25;
       } else if (eating) {
         if (!chase || !flakes.includes(chase)) chase = nearestFlake();
         const flake = chase;
@@ -882,7 +903,7 @@ const FishTank = (() => {
       if (come && distance < L * 0.25 + 8) come = null;
 
       // Eat a flake that reaches the mouth.
-      if (eating) {
+      if (canEat) {
         const mouth = mouthPoint();
         for (const flake of [...flakes]) {
           if (Math.hypot(flake.x - mouth.x, flake.y - mouth.y) > Math.max(14, L * 0.2)) continue;
@@ -1003,6 +1024,8 @@ const FishTank = (() => {
       }
       if (draining) runDrain();
       update(dt);
+      if (game) playRings();
+      else if (resultsUntil && clock >= resultsUntil) closeResults();
       showThought();
       render();
       frame = requestAnimationFrame(tick);
@@ -1035,6 +1058,8 @@ const FishTank = (() => {
         Goldfish.leftover(state);
         if (state.leftovers > leftoverLayer.childElementCount) addLeftover(state.leftovers - 1, flake.x);
       }
+      if (game) endRings(false);
+      closeResults();
       followPoint = null;
       come = null;
       fish.trail = [];
@@ -1144,6 +1169,168 @@ const FishTank = (() => {
       save(state);
     }
 
+    // ---------- Rings game ----------
+
+    function startRings() {
+      if (!active || draining || game || refusesFood()) return false;
+      closeResults();
+      game = { score: 0, ring: null, nextAt: clock + 0.6, first: true };
+      come = null;
+      screen.classList.add("rings-on");
+      scoreBoard.querySelector("output").value = "0";
+      scoreBoard.hidden = false;
+      say(FishTalk.GAME.start);
+      return true;
+    }
+
+    // The ring's two halves: the far one behind the fish, the near one in
+    // front, so the fish is seen swimming through.
+    function ringHalf(ring, near) {
+      const pad = ring.thickness + 4;
+      const width = 2 * (ring.rx + pad);
+      const height = 2 * (ring.ry + pad);
+      const half = svgNode("svg", {
+        class: `tank-ring ${near ? "near" : "far"}`, width, height, viewBox: `0 0 ${width} ${height}`,
+      });
+      half.style.left = `${ring.x - width / 2}px`;
+      half.style.top = `${ring.y - height / 2}px`;
+      const d = `M ${width / 2} ${height / 2 - ring.ry} A ${ring.rx} ${ring.ry} 0 0 ${near ? 1 : 0} ${width / 2} ${height / 2 + ring.ry}`;
+      half.append(
+        svgNode("path", { d, class: "ring-edge", "stroke-width": ring.thickness + 5 }),
+        svgNode("path", { d, class: "ring-gold", "stroke-width": ring.thickness }),
+      );
+      if (near) half.append(svgNode("path", { d, class: "ring-shine", "stroke-width": ring.thickness * 0.25 }));
+      return half;
+    }
+
+    function spawnRing() {
+      const L = fish.length;
+      const { rx, ry, thickness } = FishRings.size(L);
+      const { width, height, surface, pebbleTop } = geometry;
+      const side = Math.max(L * 0.5, rx + 10);
+      const area = {
+        left: side,
+        right: width - side,
+        // Below the score, above the pebbles.
+        top: Math.min(surface + ry + 56, pebbleTop - ry - 8),
+        bottom: pebbleTop - ry - 8,
+      };
+      const button = ringsButton.getBoundingClientRect();
+      const tank = root.getBoundingClientRect();
+      const avoid = [{
+        left: button.left - tank.left - root.clientLeft - rx - 10,
+        right: button.right - tank.left - root.clientLeft + rx + 10,
+        top: button.top - tank.top - root.clientTop - ry - 10,
+        bottom: button.bottom - tank.top - root.clientTop + ry + 10,
+      }];
+      const small = Math.min(width, height);
+      const spot = FishRings.place(random, area, fish, { near: Math.max(L * 1.3, small * 0.25), far: Math.max(width, height) * 0.75, avoid });
+      const speed = geometry.speed * (0.55 + 0.45 * look.size) * 1.6;
+      const limit = FishRings.timeLimit(Math.hypot(spot.x - fish.x, spot.y - fish.y), speed, game.score);
+      const ring = { ...spot, rx, ry, thickness, limit, startedAt: performance.now(), hurry: false, lastHint: -1 };
+      ring.far = ringHalf(ring, false);
+      ring.near = ringHalf(ring, true);
+      life.insertBefore(ring.far, fishCanvas);
+      fishCanvas.after(ring.near);
+      // It shrinks a little as its time runs out.
+      for (const half of [ring.far, ring.near]) {
+        half.animate([{ scale: 1 }, { scale: 0.8 }], { duration: limit * 1000, easing: "linear", fill: "forwards" });
+        half.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" });
+      }
+      game.ring = ring;
+    }
+
+    function removeRing(ring, how) {
+      for (const half of [ring.far, ring.near]) {
+        half.getAnimations().forEach((animation) => animation.cancel());
+        const keyframes = how === "through"
+          ? [{ opacity: 1, scale: 1 }, { opacity: 0, scale: 1.5 }]
+          : [{ opacity: 1, scale: 0.8 }, { opacity: 0, scale: 0.3 }];
+        half.animate(keyframes, { duration: how === "through" ? 300 : 420, easing: "ease-out", fill: "forwards" })
+          .finished.then(() => half.remove(), () => half.remove());
+      }
+    }
+
+    function playRings() {
+      const ring = game.ring;
+      if (!ring) {
+        if (clock >= game.nextAt) spawnRing();
+        return;
+      }
+      const elapsed = (performance.now() - ring.startedAt) / 1000;
+      if (FishRings.through(fish, fish.length, ring)) {
+        passRing(ring);
+        return;
+      }
+      if (elapsed >= ring.limit) {
+        endRings(true);
+        return;
+      }
+      // The first ring shows where to tap until the fish is on its way.
+      if (game.first && !come && !followPoint && Math.floor(elapsed / 1.1) !== ring.lastHint) {
+        ring.lastHint = Math.floor(elapsed / 1.1);
+        ripple(ring.x, ring.y);
+      }
+      if (!ring.hurry && ring.limit - elapsed < 1) {
+        ring.hurry = true;
+        ring.far.classList.add("hurry");
+        ring.near.classList.add("hurry");
+      }
+    }
+
+    function passRing(ring) {
+      game.score += 1;
+      game.first = false;
+      game.ring = null;
+      game.nextAt = clock + 0.35;
+      // Out the far side, the way it was going.
+      const heading = Math.sign(fish.vx) || fish.face;
+      if (!followPoint) come = { x: ring.x + heading * fish.length * 0.9, y: ring.y };
+      removeRing(ring, "through");
+      for (let index = 0; index < 6; index += 1) {
+        const angle = (index / 6) * TAU;
+        bubble(ring.x + Math.cos(angle) * ring.rx, ring.y + Math.sin(angle) * ring.ry, 6 + random() * 6);
+      }
+      scoreBoard.querySelector("output").value = String(game.score);
+      sound.ring?.(game.score);
+      const counted = FishTalk.GAME.count[game.score - 1];
+      if (counted) say(counted);
+    }
+
+    // celebrate is false when the game is cut short by leaving the tank.
+    function endRings(celebrate) {
+      const { score, ring } = game;
+      game = null;
+      if (ring) removeRing(ring, "missed");
+      come = null;
+      const best = score > state.ringsBest;
+      if (best) state.ringsBest = score;
+      save(state);
+      scoreBoard.hidden = true;
+      if (!celebrate) {
+        screen.classList.remove("rings-on");
+        refreshLook();
+        return;
+      }
+      results.querySelector("strong").textContent = String(score);
+      results.querySelector(".tank-best").textContent = `Best ${state.ringsBest}`;
+      results.classList.toggle("new-best", best && score > 0);
+      results.hidden = false;
+      resultsUntil = clock + 2.8;
+      sound.miss?.();
+      if (best && score > 0) {
+        sound.best?.();
+        say(FishTalk.GAME.best);
+      } else say(FishTalk.GAME.end);
+      refreshLook();
+    }
+
+    function closeResults() {
+      resultsUntil = 0;
+      results.hidden = true;
+      if (!game) screen.classList.remove("rings-on");
+    }
+
     function hitFish(x, y) {
       const L = fish.length;
       const rx = Math.max(L * 0.6, 34);
@@ -1172,6 +1359,18 @@ const FishTank = (() => {
     function tap(clientX, clientY) {
       if (!active) return "";
       const { x, y } = toTank(clientX, clientY);
+      if (game) {
+        // Every tap steers. A tap on the ring sends the fish into its hole;
+        // once through, it carries on out the other side. Aiming past the
+        // ring sent it on a slant that could cross above or below the hole.
+        const ring = game.ring;
+        if (ring && Math.abs(x - ring.x) < ring.rx + 40 && Math.abs(y - ring.y) < ring.ry + 30) {
+          come = { x: ring.x, y: ring.y };
+        } else come = { x, y };
+        ripple(x, y);
+        sound.plip?.();
+        return "steer";
+      }
       if (hitFish(x, y)) {
         fish.wiggleUntil = clock + 0.9;
         come = null;
@@ -1222,6 +1421,7 @@ const FishTank = (() => {
       layout: () => active && layout(),
       feed,
       changeWater,
+      startRings,
       tap,
       follow,
       release,
@@ -1247,6 +1447,13 @@ const FishTank = (() => {
         coming: Boolean(come),
         thought: thoughtShown,
         line: lastLine,
+        game: game && {
+          score: game.score,
+          ring: game.ring && { x: game.ring.x, y: game.ring.y, rx: game.ring.rx, ry: game.ring.ry, limit: game.ring.limit,
+            left: game.ring.limit - (performance.now() - game.ring.startedAt) / 1000 },
+        },
+        results: resultsUntil > clock,
+        best: state.ringsBest,
         look: { ...look },
         geometry: geometry && { ...geometry, ship: { ...geometry.ship } },
       }),

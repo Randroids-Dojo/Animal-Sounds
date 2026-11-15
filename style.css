@@ -875,10 +875,20 @@ body[data-page="fish"] #pages { height: 100%; }
 #fish-screen[hidden],
 #fish-screen[inert] { display: none; }
 
+/* The tank and the Rings button over its corner. */
+.tank-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* fish-tank.js reads this box's inner size; every layer fills it. */
 #fish-tank {
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   border: 6px solid #FFF6DA;
@@ -1095,6 +1105,136 @@ body[data-page="fish"] #pages { height: 100%; }
   outline-offset: 3px;
 }
 
+/* ---------- Rings game ---------- */
+
+/* On the tank's top-right corner, so the care buttons keep their row. */
+.fish-rings {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 4px 16px 4px 6px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 0 var(--ink-shadow);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  appearance: none;
+  cursor: pointer;
+  will-change: transform;
+}
+
+.fish-rings[hidden] { display: none; }
+.fish-rings:active { transform: scale(0.95); }
+.fish-rings img { width: 44px; height: 44px; pointer-events: none; }
+
+.fish-rings-best {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #FFD24D;
+  font-size: 0.95rem;
+}
+
+.fish-rings-best[hidden] { display: none; }
+
+/* While a game is on, the care buttons and Rings step aside. */
+.rings-on .fish-button,
+.rings-on .fish-rings { visibility: hidden; }
+
+.tank-ring {
+  overflow: visible;
+  will-change: transform;
+}
+
+.ring-edge { fill: none; stroke: var(--ink); stroke-linecap: round; }
+.ring-gold { fill: none; stroke: #FFD24D; stroke-linecap: round; }
+.tank-ring.far .ring-gold { stroke: #E7A72A; }
+.ring-shine { fill: none; stroke: rgba(255, 255, 255, 0.75); stroke-linecap: round; }
+
+/* The last second: the ring turns orange and wobbles. */
+.tank-ring.hurry .ring-gold { stroke: #FF8A4C; }
+.tank-ring.hurry { animation: ring-hurry 0.25s ease-in-out infinite alternate; }
+
+@keyframes ring-hurry {
+  from { rotate: -5deg; }
+  to { rotate: 5deg; }
+}
+
+#fish-tank > .tank-score {
+  left: 50%;
+  top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 16px 2px 6px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 2rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transform: translateX(-50%);
+  will-change: transform;
+}
+
+.tank-score img { width: 40px; height: 40px; }
+
+#fish-tank > .tank-results {
+  left: 50%;
+  top: 38%;
+  display: grid;
+  justify-items: center;
+  padding: 14px 32px 16px;
+  border: 4px solid var(--ink);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 0 rgba(59, 53, 96, 0.18);
+  transform: translate(-50%, -50%);
+  animation: results-in 0.35s ease-out;
+}
+
+/* The id rules above outrank [hidden]. */
+#fish-tank > .tank-score[hidden],
+#fish-tank > .tank-results[hidden] { display: none; }
+
+.tank-results img { width: 64px; height: 64px; }
+.tank-results strong { font-size: 3.6rem; line-height: 1; }
+.tank-best { font-size: 1.2rem; font-weight: 600; opacity: 0.75; }
+
+/* A new best gets a gold star. */
+.tank-results.new-best::before {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  color: #FFD24D;
+  content: "★";
+  font-size: 3.4rem;
+  line-height: 1;
+  text-shadow: 0 3px 0 #E7A72A;
+  transform: translateX(-50%);
+}
+
+@keyframes results-in {
+  from { opacity: 0; transform: translate(-50%, -40%) scale(0.8); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
 /* The button that meets the fish's need breathes, with a ring around it. */
 .fish-button.wanted { animation: fish-button-wanted 1.5s ease-in-out infinite; }
 
@@ -1159,7 +1299,9 @@ body[data-page="fish"] #pages { height: 100%; }
   .fish-button.wanted,
   .fish-button.wanted::after,
   .tank-thought > span,
-  .fish-button.arriving { animation: none; }
+  .fish-button.arriving,
+  .tank-ring.hurry,
+  #fish-tank > .tank-results { animation: none; }
   .fish-button.wanted::after { opacity: 0.55; }
   .tank-shaker.shaking { animation-duration: 0.01s; }
 }

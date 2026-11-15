@@ -2,8 +2,9 @@
 
 // Run against the local static server (or pass a deployed URL). Checks that
 // the goldfish tank stays cheap for the tablet's weak GPU and CPU, by counting
-// what Chrome does in a trace while the busiest scene plays: the fish chasing
-// a sprinkle of flakes, with bubbles rising and its thought bubble following.
+// what Chrome does in a trace while the busiest scenes play: the fish chasing
+// a sprinkle of flakes, with bubbles rising and its thought bubble following,
+// and a rings game with each ring steered through as it appears.
 // - The page's own layers are not redrawn while things swim: the water,
 //   plants, pebbles and ship are one canvas painted once.
 // - The fish's layer only ever translates; its turns and tilt are drawn into
@@ -55,7 +56,9 @@ const percentile = (values, p) => {
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 
   // A grown, hungry fish is the biggest thing redrawn each frame.
-  async function measure(fault, grown = true) {
+  // scene "care" is food, bubbles and a water change; "rings" is a game of
+  // rings, each steered through as soon as it appears.
+  async function measure(fault, grown = true, scene = "care") {
     const context = await browser.newContext({ viewport: { width: 800, height: 1340 }, hasTouch: true });
     const page = await context.newPage();
     if (grown) {
@@ -93,10 +96,22 @@ const percentile = (values, p) => {
     // cloudy water, and then the water drained and refilled clear.
     await browser.startTracing(page, { categories: CATEGORIES });
     const started = Date.now();
-    const sampled = await page.evaluate(() => new Promise((resolve) => {
-      fishTank.feed();
-      setTimeout(() => fishTank.feed(), 700);
-      setTimeout(() => fishTank.changeWater(), 1400);
+    const sampled = await page.evaluate((scene) => new Promise((resolve) => {
+      if (scene === "rings") {
+        fishTank.startRings();
+        const steer = setInterval(() => {
+          const { game, coming } = fishTank.debug();
+          if (!game) return clearInterval(steer);
+          if (game.ring && !coming) {
+            const box = document.getElementById("fish-tank").getBoundingClientRect();
+            fishTank.tap(box.left + 6 + game.ring.x, box.top + 6 + game.ring.y);
+          }
+        }, 200);
+      } else {
+        fishTank.feed();
+        setTimeout(() => fishTank.feed(), 700);
+        setTimeout(() => fishTank.changeWater(), 1400);
+      }
       const tank = document.getElementById("fish-tank");
       const fishCanvas = document.querySelector(".tank-fish");
       const seen = { translates: true, flakes: 0, bubbles: 0, drained: false, clouded: 0 };
@@ -109,11 +124,12 @@ const percentile = (values, p) => {
         seen.bubbles = Math.max(seen.bubbles, tank.querySelectorAll(".tank-bubble").length);
         seen.drained ||= fishTank.debug().draining;
         seen.clouded = Math.max(seen.clouded, Number(getComputedStyle(tank.querySelector(".tank-cloud")).opacity));
+        seen.rings = Math.max(seen.rings || 0, fishTank.debug().game?.score || 0);
         if (performance.now() < end) requestAnimationFrame(sample);
         else resolve({ ...seen, fishShare: (fishCanvas.offsetWidth * fishCanvas.offsetHeight) / (tank.clientWidth * tank.clientHeight) });
       };
       requestAnimationFrame(sample);
-    }));
+    }), scene);
     const events = traceEvents(await browser.stopTracing());
     const seconds = (Date.now() - started) / 1000;
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });
@@ -137,6 +153,7 @@ const percentile = (values, p) => {
       translates: sampled.translates,
       flakes: sampled.flakes,
       drained: sampled.drained,
+      rings: sampled.rings || 0,
       clouded: Number(sampled.clouded.toFixed(2)),
       bubbles: sampled.bubbles,
       swaps,
@@ -170,6 +187,7 @@ const percentile = (values, p) => {
 
     const clean = await measure(null);
     const baby = await measure(null, false);
+    const rings = await measure(null, true, "rings");
     assert.ok(clean.flakes >= 3 && clean.bubbles >= 1, `the busy scene played: ${clean.flakes} flakes, ${clean.bubbles} bubbles`);
     assert.ok(clean.drained && clean.clouded > 0.2, `with cloudy water and a water change: ${clean.clouded}, ${clean.drained}`);
     assert.ok(clean.swaps > 60, `the compositor drew it: ${clean.swaps} frames`);
@@ -181,7 +199,12 @@ const percentile = (values, p) => {
     for (const key of ["layerRedraws", "rasterTilesPerSecond", "frameMs"]) {
       assert.ok(baby[key] <= LIMITS[key], `a new baby fish too: ${key} ${baby[key]}`);
     }
-    console.log(JSON.stringify({ passed: true, throttle: THROTTLE, limits: LIMITS, clean, baby, faults }, null, 2));
+    // A rings game: halves drawn once per ring, the score redrawn per point.
+    assert.ok(rings.rings >= 2 && rings.translates, `a rings game played: ${rings.rings} rings`);
+    for (const key of ["layerRedraws", "rasterTilesPerSecond", "frameMs"]) {
+      assert.ok(rings[key] <= LIMITS[key], `a rings game too: ${key} ${rings[key]}`);
+    }
+    console.log(JSON.stringify({ passed: true, throttle: THROTTLE, limits: LIMITS, clean, baby, rings, faults }, null, 2));
   } finally {
     await browser.close();
   }

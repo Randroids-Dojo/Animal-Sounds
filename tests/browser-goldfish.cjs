@@ -138,9 +138,9 @@ async function openFish(browser, { viewport = TABLET, saved = null } = {}) {
       // Log the tank's sounds by name; they still play.
       window.sounds = [];
       for (const [name, make] of Object.entries(fishSounds)) {
-        fishSounds[name] = () => {
+        fishSounds[name] = (...args) => {
           window.sounds.push(name);
-          make();
+          make(...args);
         };
       }
     });
@@ -164,7 +164,7 @@ async function openFish(browser, { viewport = TABLET, saved = null } = {}) {
 async function checkLayout(browser, viewport) {
   const label = `${viewport.label} ${viewport.width}x${viewport.height}`;
   // Cloudy, so both buttons show.
-  const fish = await openFish(browser, { viewport, saved: (now) => ({ v: 1, bornAt: now - 60 * 864e5, updatedAt: now, hunger: 0.5, dirt: 0.5, health: 1, goodMs: 50 * 864e5, leftovers: 6 }) });
+  const fish = await openFish(browser, { viewport, saved: (now) => ({ v: 1, bornAt: now - 60 * 864e5, updatedAt: now, hunger: 0.5, dirt: 0.5, health: 1, goodMs: 50 * 864e5, leftovers: 6, ringsBest: 12 }) });
   try {
     await wait(400);
     await fish.page.screenshot({ path: path.join(evidence, `${viewport.label.replace(/\s+/g, "-")}.png`) });
@@ -184,7 +184,7 @@ async function checkLayout(browser, viewport) {
       const rect = (element) => element.getBoundingClientRect();
       const tabs = [...document.querySelectorAll("#page-tabs button")];
       const tank = document.getElementById("fish-tank");
-      const buttons = [...document.querySelectorAll(".fish-button")].filter((button) => !button.hidden);
+      const buttons = [...document.querySelectorAll(".fish-button, .fish-rings")].filter((button) => !button.hidden);
       const fishBox = rect(document.querySelector(".tank-fish"));
       const tankBox = rect(tank);
       const debug = fishTank.debug();
@@ -198,12 +198,18 @@ async function checkLayout(browser, viewport) {
       });
       const spilled = buttons.flatMap((button) => {
         const box = rect(button);
-        return [...button.children].filter((child) => {
+        // The best-score badge hangs off the Rings corner on purpose.
+        return [...button.children].filter((child) => !child.matches(".fish-rings-best")).filter((child) => {
           const inner = rect(child);
           return inner.left < box.left - 1 || inner.right > box.right + 1 || inner.top < box.top - 1 || inner.bottom > box.bottom + 1;
         }).map((child) => `${button.id} ${child.tagName}`);
       });
+      const badge = document.querySelector(".fish-rings-best");
+      const badgeBox = rect(badge);
+      const badgeInTank = badge.hidden || (badgeBox.left >= tankBox.left && badgeBox.right <= tankBox.right
+        && badgeBox.top >= tankBox.top && badgeBox.bottom <= tankBox.bottom);
       return {
+        badgeInTank,
         spilled,
         edge,
         oneRow: tabs.every((tab) => Math.abs(rect(tab).top - rect(tabs[0]).top) < 1),
@@ -260,9 +266,10 @@ async function checkLayout(browser, viewport) {
       assert.ok(box.left >= edge - 0.5 && box.right <= layout.innerWidth - edge + 0.5 && box.bottom <= layout.innerHeight - edge + 0.5,
         `${label}: tank and buttons clear the grip band: ${JSON.stringify(box)}`);
     }
-    assert.equal(buttons.length, 2, `${label}: Feed and Change water both show`);
+    assert.equal(buttons.length, 3, `${label}: Feed, Change water and Rings all show`);
     assert.deepEqual(layout.missed, [], `${label}: every part of each button takes a tap`);
     assert.deepEqual(layout.spilled, [], `${label}: each button's picture and word fit inside it`);
+    assert.ok(layout.badgeInTank, `${label}: the best-score badge stays on the tank`);
     assert.ok(layout.tankArea > layout.innerWidth * layout.innerHeight * 0.3, `${label}: the tank gets most of the screen`);
     assert.ok(layout.fishInside && layout.fishOnScreen, `${label}: the fish is in the water`);
     assert.ok(layout.fishLength >= 80, `${label}: a two-month-old fish is big enough to tap: ${layout.fishLength}px`);
@@ -667,6 +674,173 @@ async function checkTime(browser) {
   return results;
 }
 
+// The rings game: Rings starts it, taps or a lead send the fish through each
+// ring in time, it ends when a ring runs out, and the best score is kept.
+async function checkRings(browser) {
+  const fish = await openFish(browser, { saved: (now) => ({ v: 1, bornAt: now - 40 * 864e5, updatedAt: now, hunger: 0, dirt: 0, health: 1, goodMs: 40 * 864e5, leftovers: 0 }) });
+  const { page } = fish;
+  const media = () => page.evaluate(() => window.media.slice());
+  // What is really on screen, not what the hidden attribute says.
+  const shown = (selector) => page.locator(selector).evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && getComputedStyle(element).visibility === "visible";
+  });
+  const nextRing = async (label) => (await fish.until(label, (v) => v.game?.ring, 3000)).game.ring;
+  // Hold the fish in the corner whose way there passes farthest from the
+  // ring, so a wandering fish cannot swim through it by luck.
+  const holdAway = async (ring) => {
+    const { fish: at, geometry } = await fish.debug();
+    const gap = (corner) => {
+      const dx = corner.x - at.x;
+      const dy = corner.y - at.y;
+      const t = Math.max(0, Math.min(1, ((ring.x - at.x) * dx + (ring.y - at.y) * dy) / (dx * dx + dy * dy || 1)));
+      return Math.hypot(at.x + dx * t - ring.x, at.y + dy * t - ring.y);
+    };
+    const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([fx, fy]) => ({
+      x: geometry.width * (0.1 + 0.8 * fx),
+      y: geometry.surface + (geometry.pebbleTop - geometry.surface) * (0.1 + 0.8 * fy),
+    }));
+    const corner = corners.sort((a, b) => gap(b) - gap(a))[0];
+    await page.evaluate(({ x, y }) => fishTank.follow(x, y), await fish.onScreen(corner));
+  };
+  const results = {};
+  try {
+    assert.equal(await shown("#fish-rings"), true, "Rings shows for a well fish");
+    assert.equal(await page.locator(".fish-rings-best").isHidden(), true, "no best score yet");
+    assert.equal(await shown(".tank-score"), false, "no score until a game starts");
+    assert.equal(await shown(".tank-results"), false);
+    const reach = await page.evaluate(() => {
+      const button = document.getElementById("fish-rings");
+      const box = button.getBoundingClientRect();
+      return [[0.5, 0.5], [0.2, 0.5], [0.8, 0.5]].every(([fx, fy]) => button.contains(document.elementFromPoint(box.left + box.width * fx, box.top + box.height * fy)));
+    });
+    assert.ok(reach, "Rings takes a tap anywhere on it");
+
+    await fish.tap("#fish-rings");
+    let value = await fish.debug();
+    assert.ok(value.game, "Rings starts a game");
+    assert.equal((await media()).at(-1), "audio/fish/rings-start.mp3", "it says Tap the ring!");
+    assert.equal(await shown("#fish-feed"), false, "Feed steps aside");
+    assert.equal(await shown("#fish-rings"), false, "and so does Rings");
+    assert.equal(await shown(".tank-score"), true, "the score shows");
+    assert.equal(await page.locator(".tank-score output").textContent(), "0");
+
+    // The first ring shows where to tap.
+    const first = await nextRing("a ring appears");
+    const { geometry } = value;
+    assert.ok(first.x - first.rx > 0 && first.x + first.rx < geometry.width && first.y - first.ry > geometry.surface
+      && first.y + first.ry < geometry.pebbleTop, `the ring is in the water: ${JSON.stringify(first)}`);
+    await page.waitForFunction(() => document.querySelector(".tank-ripple"), null, { timeout: 2500 });
+    assert.equal(await page.locator(".tank-ring").count(), 2, "a near half and a far half");
+    assert.equal(await page.evaluate(() => {
+      const fishCanvas = document.querySelector(".tank-fish");
+      return fishCanvas.previousElementSibling.matches(".tank-ring.far") && fishCanvas.nextElementSibling.matches(".tank-ring.near");
+    }), true, "the far half is behind the fish and the near half in front");
+
+    // Tapping the fish in a game steers it; it does not talk.
+    const heard = (await media()).length;
+    await fish.tapPoint(await fish.onScreen((await fish.debug()).fish));
+    assert.equal((await media()).length, heard, "no chatter during a game");
+
+    // Three rings by tapping them, each in good time.
+    const spots = [];
+    for (let count = 1; count <= 3; count += 1) {
+      const ring = await nextRing(`ring ${count}`);
+      spots.push(ring);
+      const started = Date.now();
+      await fish.tapPoint(await fish.onScreen(ring));
+      await fish.until(`through ring ${count}`, (v) => v.game?.score === count, ring.left * 1000 + 500);
+      const took = (Date.now() - started) / 1000;
+      assert.ok(took < ring.left - 0.8, `ring ${count} with time to spare: ${took.toFixed(2)} s of ${ring.left.toFixed(2)}`);
+      assert.equal((await media()).at(-1), `audio/fish/count-${count}.mp3`, `it counts ${count}: ${(await media()).slice(-4)}`);
+      assert.equal((await fish.sounds()).filter((name) => name === "ring").length, count, "a chime for each");
+      assert.equal(await page.locator(".tank-score output").textContent(), String(count));
+    }
+
+    // A lead counts too: drag the fish through the fourth ring.
+    const fourth = await nextRing("ring 4");
+    spots.push(fourth);
+    const from = (await fish.debug()).fish;
+    await fish.touch("touchStart", [await fish.onScreen({ x: from.x, y: from.y })]);
+    for (let step = 1; step <= 24; step += 1) {
+      const t = step / 24;
+      await fish.touch("touchMove", [await fish.onScreen({ x: from.x + (fourth.x - from.x) * t, y: from.y + (fourth.y - from.y) * t })]);
+      await wait(40);
+    }
+    await fish.until("led through ring 4", (v) => v.game?.score === 4, 4000);
+    await fish.touch("touchEnd", []);
+    assert.ok(spots.every((spot, index) => index === 0 || Math.hypot(spot.x - spots[index - 1].x, spot.y - spots[index - 1].y) > 50),
+      "each ring appears somewhere new");
+
+    // Then the ring is missed: the game ends when its time is up.
+    const last = await nextRing("ring 5");
+    await holdAway(last);
+    const waited = Date.now();
+    await fish.until("time runs out", (v) => !v.game, last.left * 1000 + 2000);
+    const ended = (Date.now() - waited) / 1000;
+    await page.evaluate(() => fishTank.release());
+    assert.ok(ended > last.left - 0.3 && ended < last.left + 0.6, `it ends when the ring runs out: ${ended.toFixed(2)} s for ${last.left.toFixed(2)}`);
+    await wait(700); // Its 0.42 s shrink.
+    assert.equal(await page.locator(".tank-ring").count(), 0, "the ring goes");
+    value = await fish.debug();
+    assert.equal(value.results, true, "the score shows");
+    assert.equal(await page.locator(".tank-results strong").textContent(), "4");
+    assert.equal(await page.locator(".tank-best").textContent(), "Best 4");
+    assert.equal(await page.locator(".tank-results.new-best").count(), 1, "with a star for a new best");
+    assert.equal((await media()).at(-1), "audio/fish/rings-best.mp3", "New high score!");
+    for (const name of ["miss", "best"]) assert.ok((await fish.sounds()).includes(name), `${name} sound`);
+    assert.equal(await shown("#fish-feed"), false, "the buttons wait while the score shows");
+    await fish.until("the score goes", (v) => !v.results, 4000);
+    await wait(100);
+    assert.equal(await shown("#fish-feed"), true, "then the buttons come back");
+    assert.equal(await shown("#fish-rings"), true);
+    assert.equal(await page.locator(".fish-rings-best").textContent(), "4", "Rings shows the best score");
+    await page.screenshot({ path: path.join(evidence, "rings-best.png") });
+
+    // Kept across a reload.
+    await fish.reload();
+    assert.equal(await page.locator(".fish-rings-best").textContent(), "4", "the best score is saved");
+
+    // A game with no rings: no new best, a kind word.
+    await fish.tap("#fish-rings");
+    await holdAway(await nextRing("a ring"));
+    await fish.until("it runs out", (v) => !v.game, 9000);
+    await page.evaluate(() => fishTank.release());
+    assert.equal(await page.locator(".tank-results strong").textContent(), "0");
+    assert.equal(await page.locator(".tank-best").textContent(), "Best 4", "the best stays");
+    assert.equal(await page.locator(".tank-results.new-best").count(), 0, "no star");
+    assert.equal((await media()).at(-1), "audio/fish/rings-end.mp3", "Great swimming!");
+    await fish.until("the score goes", (v) => !v.results, 4000);
+
+    // Leaving in the middle ends it quietly, nothing left behind.
+    await fish.tap("#fish-rings");
+    const ring = await nextRing("a ring");
+    await fish.tapPoint(await fish.onScreen(ring));
+    await fish.until("through", (v) => v.game?.score === 1, 5000);
+    const sounded = (await fish.sounds()).length;
+    await fish.tap('[data-page-target="animals"]');
+    value = await fish.debug();
+    assert.equal(value.game, null, "the game ends on leaving");
+    assert.equal(value.results, false, "without a score card");
+    assert.deepEqual((await fish.sounds()).slice(sounded), [], "or a sound");
+    assert.equal(value.best, 4, "a lower score leaves the best alone");
+    await fish.tap('[data-page-target="fish"]');
+    await wait(500);
+    assert.equal(await page.locator(".tank-ring").count(), 0);
+    assert.equal(await shown("#fish-feed"), true, "the buttons are back");
+    assert.equal(await shown("#fish-rings"), true);
+
+    // A fish sick in dirty water is too poorly to play.
+    await page.evaluate(() => { fishTank.state = { ...fishTank.state, dirt: 1, health: 0 }; });
+    assert.equal(await shown("#fish-rings"), false, "no Rings for a sick fish");
+    assert.deepEqual(fish.errors, []);
+    results.best = 4;
+    return results;
+  } finally {
+    await fish.context.close();
+  }
+}
+
 // The tank animates only while it is showing and the app is awake.
 async function checkLifecycle(browser) {
   const fish = await openFish(browser);
@@ -786,7 +960,7 @@ async function checkLifecycle(browser) {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   try {
     // ONLY=care,time runs just those parts.
-    const only = (process.env.ONLY || "layout,care,play,time,lifecycle").split(",");
+    const only = (process.env.ONLY || "layout,care,play,rings,time,lifecycle").split(",");
     const results = { passed: true };
     if (only.includes("layout")) {
       results.layouts = [];
@@ -794,6 +968,7 @@ async function checkLifecycle(browser) {
     }
     if (only.includes("care")) results.care = await checkCare(browser);
     if (only.includes("play")) await checkPlay(browser);
+    if (only.includes("rings")) results.rings = await checkRings(browser);
     if (only.includes("time")) results.time = await checkTime(browser);
     if (only.includes("lifecycle")) await checkLifecycle(browser);
     console.log(JSON.stringify({ ...results, evidence }, null, 2));

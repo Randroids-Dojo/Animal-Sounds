@@ -65,6 +65,15 @@
     ],
   };
   const STATUS = ["sick", "better", "hungry", "overfed", "cloudy"];
+  const COUNT = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
+    "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty"];
+  // The rings game: how to play, counting each ring, and how it went.
+  const GAME = {
+    start: line("rings-start", "Tap the ring!"),
+    count: COUNT.map((word, index) => line(`count-${index + 1}`, `${word}!`)),
+    end: line("rings-end", "Great swimming!"),
+    best: line("rings-best", "New high score!"),
+  };
   // Ate a flake this recently: "just ate".
   const JUST_ATE_MS = 10 * 60 * 1000;
 
@@ -150,8 +159,8 @@
     return { ...chosen, fact: fact.key };
   }
 
-  const all = () => Object.values(LINES).flat();
-  const api = { LINES, STATUS, JUST_ATE_MS, ageLine, facts, createTalker, next, all };
+  const all = () => [...Object.values(LINES).flat(), GAME.start, ...GAME.count, GAME.end, GAME.best];
+  const api = { LINES, STATUS, GAME, JUST_ATE_MS, ageLine, facts, createTalker, next, all };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else globalScope.FishTalk = api;
 })(typeof globalThis === "undefined" ? window : globalThis);

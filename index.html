@@ -19,6 +19,7 @@
   <script defer src="puzzle-deck.js"></script>
   <script defer src="goldfish.js"></script>
   <script defer src="fish-talk.js"></script>
+  <script defer src="fish-rings.js"></script>
   <script defer src="fish-tank.js"></script>
   <script defer src="app.js"></script>
 </head>
@@ -177,6 +178,7 @@
       </section>
       <section id="fish-screen" class="app-screen" aria-label="Pet goldfish" hidden inert>
         <!-- fish-tank.js paints the scene once and moves the fish over it. -->
+        <div class="tank-wrap">
         <div id="fish-tank" role="img" aria-label="A goldfish">
           <canvas class="tank-scene"></canvas>
           <div class="tank-leftovers"></div>
@@ -186,6 +188,11 @@
           <span class="tank-pour"></span>
           <div class="tank-thought"><span><img src="images/fish/feed.svg" alt=""></span></div>
           <img class="tank-shaker" src="images/fish/feed.svg" alt="">
+          <div class="tank-score" hidden><img src="images/fish/ring.svg" alt=""><output>0</output></div>
+          <div class="tank-results" hidden><img src="images/fish/ring.svg" alt=""><strong>0</strong><span class="tank-best">Best 0</span></div>
+        </div>
+        <!-- Starts the rings game; the badge is the best score. -->
+        <button type="button" id="fish-rings" class="fish-rings" aria-label="Rings game"><img src="images/fish/ring.svg" alt=""><span>Rings</span><span class="fish-rings-best" hidden></span></button>
         </div>
         <div class="fish-controls">
           <button type="button" id="fish-feed" class="fish-button"><img src="images/fish/feed.svg" alt=""><span>Feed</span></button>

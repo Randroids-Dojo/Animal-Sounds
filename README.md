@@ -107,6 +107,19 @@ The videos come from this YouTube playlist:
     button that helps, and that button breathes: water when sick in dirty
     water, then food when hungry, then water when the tank is cloudy. It only
     asks for water while Change water is showing.
+  - **Rings** (a button on the tank's top-right corner, with the best score
+    as a badge) starts a quick game. A gold ring appears in the water and
+    Randy says "Tap the ring!"; ripples show where to tap until the fish is on
+    its way. Tapping the ring sends the fish into its hole and out the other
+    side; tapping elsewhere or leading with a finger steers it too. Each ring
+    counts aloud ("One!" up to "Twenty!") with a chime that climbs a scale,
+    and the next ring appears somewhere new. A ring waits for the swim plus
+    time to react, which shrinks as the score climbs (`fish-rings.js`); it
+    shrinks, then turns orange and wobbles in its last second. When one runs
+    out, the score shows with the best, a star and "New high score!" for a
+    new best, or "Great swimming!". The best is saved with the fish. Feed,
+    Change water and Rings step aside during a game, a fish sick in dirty
+    water is too poorly to play, and leaving the tab ends a game quietly.
   - Tap the fish and it blows bubbles and says how it is doing, in Randy's
     voice (`fish-talk.js`): sick, getting better, hungry, full with food left
     over, cloudy water, just ate, happy, its age ("two weeks old", "three
@@ -413,7 +426,9 @@ pieces that grow when picked up and shrink back where they are put down. It
 also plays twelve rounds to check that kinds take turns, each on its own
 backdrop, and that every picture and recording loads.
 `node --test tests/*.test.js` includes the fish's care rules
-(`tests/goldfish.test.js`) and what it says (`tests/fish-talk.test.js`: every
+(`tests/goldfish.test.js`), the rings game's rules (`tests/fish-rings.test.js`:
+time per ring, ring size, placement and passing through), and what it says
+(`tests/fish-talk.test.js`: every
 line recorded, age wording, lines that follow its state, no line twice in a
 row over 3000 random taps). It also includes the cut geometry: shared cuts, flat
 borders, knob size, and that every knob's head is wider than its neck. It also
@@ -457,7 +472,12 @@ water until Change water appears, and every frame of
 the water change keeps the fish under the water line. It checks the fish, ship
 and water taps and their recordings: a hungry fish says it is hungry, a happy
 one that it is happy, a second tap does not cut a line short, and each tap
-after says something new. It checks leading with a moving finger but not a
+after says something new. It plays the rings game: Rings starts it and the
+other buttons step aside, the first ring shows where to tap, rings go
+through by tap and by lead with time to spare and are counted aloud, a missed
+ring ends the game on time with the score, best, star and voice, the best
+is saved across reloads and kept by a lower score, leaving mid-game ends it
+quietly, and a sick fish cannot play. It checks leading with a moving finger but not a
 resting one, a lead that turns into a palm, a minute-long lead that must not
 dim the screen, a mouse drag whose closing click is not a tap, a tap on a
 fish that has swum on, saves across reloads, a fish that is hungry and cloudy
@@ -470,8 +490,8 @@ and word fit inside them, and that the thought bubble stays in the water.
 `ONLY=care,time` runs some parts.
 Run `node tests/browser-goldfish-paint.cjs` to count the tank's drawing in a
 trace while a grown fish chases flakes among bubbles in cloudy water, which
-is then drained and refilled: no layer is redrawn as things move, the fish's
-layer only translates, and the frame callbacks stay small with the CPU slowed
+is then drained and refilled, and again through a rings game: no layer is
+redrawn as things move, the fish's layer only translates, and the frame callbacks stay small with the CPU slowed
 six times. Each check is first shown its fault
 (movers painted into the page, the water redrawn, a scaled fish, slow frames).
 On the Pixel 8 Pro the same scene ran at about 60 fps; the tablet's frame rate

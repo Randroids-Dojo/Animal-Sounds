@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72">
+  <!-- A gold swim-through ring, seen a little from the side. Original artwork. -->
+  <ellipse cx="36" cy="36" rx="17" ry="27" fill="none" stroke="#3B3560" stroke-width="14"/>
+  <ellipse cx="36" cy="36" rx="17" ry="27" fill="none" stroke="#FFD24D" stroke-width="8"/>
+  <path d="M41 11.5a17 27 0 0 1 10 14" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M60 12l1.8 4.6L66.4 18.4l-4.6 1.8L60 24.8l-1.8-4.6L53.6 18.4l4.6-1.8Z" fill="#FFE68F" stroke="#3B3560" stroke-width="1.8" stroke-linejoin="round"/>
+</svg>
