@@ -103,6 +103,22 @@ async function openFish(browser, { viewport = TABLET, saved = null } = {}) {
     requestAnimationFrame(look);
   });
   const badAsks = () => page.evaluate(() => window.badAsks.length);
+  // Every frame: once after a flake, the fish keeps after it until it is
+  // eaten or gone, rather than turning to whichever flake is nearest.
+  const watchChase = () => page.evaluate(() => {
+    window.chaseSwitches = [];
+    let last = null;
+    const look = () => {
+      if (fishTank.active) {
+        const { chasing, flakes } = fishTank.debug();
+        if (last !== null && chasing !== last && flakes.some((flake) => flake.id === last)) window.chaseSwitches.push([last, chasing]);
+        last = chasing;
+      }
+      requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
+  const chaseSwitches = () => page.evaluate(() => window.chaseSwitches.slice());
   const until = async (label, test, timeout = 8000) => {
     const started = Date.now();
     for (;;) {
@@ -139,7 +155,7 @@ async function openFish(browser, { viewport = TABLET, saved = null } = {}) {
     await page.reload();
     await open();
   };
-  return { context, page, cdp, errors, touch, tapPoint, tap, center, onScreen, debug, sounds, breathing, watchAsks, badAsks, until, reload };
+  return { context, page, cdp, errors, touch, tapPoint, tap, center, onScreen, debug, sounds, breathing, watchAsks, badAsks, watchChase, chaseSwitches, until, reload };
 }
 
 // The fish tab on its own: one row of tabs that are not clipped, a tank and
@@ -279,6 +295,7 @@ async function checkCare(browser) {
     assert.equal(value.line?.fact, "hungry", `a hungry fish talks about being hungry: ${JSON.stringify(value.line)}`);
     assert.equal((await page.evaluate(() => window.media)).at(-1), value.line.audio, "in its recording");
 
+    await fish.watchChase();
     await fish.tap("#fish-feed");
     assert.notEqual(await page.evaluate(() => countingSince), null, "feeding counts as play");
     value = await fish.debug();
@@ -354,6 +371,7 @@ async function checkCare(browser) {
     const heard = await fish.sounds();
     for (const name of ["drain", "fill"]) assert.ok(heard.includes(name), `${name} sound`);
     assert.equal(await fish.badAsks(), 0, "it never asked for water while Change water was hidden");
+    assert.deepEqual(await fish.chaseSwitches(), [], "it kept after each flake until it got it");
     assert.deepEqual(fish.errors, []);
     return { sounds: heard.length };
   } finally {
@@ -465,6 +483,41 @@ async function checkPlay(browser) {
     assert.equal(value.leftovers, 0, "it ate every flake");
     await page.evaluate(() => { fishTank.state = { ...fishTank.state, hunger: 0 }; });
 
+    // Food sprinkled by a wall, with the fish pinned against it: it must come
+    // round and face the wall to eat, not sit with the food behind its mouth.
+    for (const side of [0, 1]) {
+      const wall = await fish.onScreen({ x: side ? geometry.width - 2 : 2, y: geometry.surface + 200 });
+      await page.evaluate(({ x, y }) => fishTank.follow(x, y), wall);
+      await wait(2000);
+      // Just beside the pinned fish, on the open side of it.
+      const pinned = (await fish.debug()).fish.x;
+      await page.evaluate((at) => {
+        fishTank.state = { ...fishTank.state, hunger: 0.6 };
+        fishTank.feed(at);
+        fishTank.release();
+      }, pinned + (side ? -12 : 12));
+      value = await fish.debug();
+      assert.ok(value.flakes.some((flake) => (side ? flake.x < pinned : flake.x > pinned)), "food lies just past the fish's middle, away from the wall");
+      value = await fish.until(`it eats the food by the ${side ? "right" : "left"} wall`, (v) => v.flakes.length === 0, 12000);
+      assert.equal(value.leftovers, 0, `every flake by the ${side ? "right" : "left"} wall eaten`);
+    }
+    // Food dropped right over the fish, flakes on both sides of its middle:
+    // it keeps after one flake rather than swinging between them.
+    await fish.watchChase();
+    const middle = await fish.onScreen({ x: geometry.width / 2, y: geometry.surface + 260 });
+    await page.evaluate(({ x, y }) => fishTank.follow(x, y), middle);
+    await wait(2000);
+    const over = (await fish.debug()).fish.x;
+    await page.evaluate((at) => {
+      fishTank.state = { ...fishTank.state, hunger: 0.6 };
+      fishTank.release();
+      fishTank.feed(at);
+    }, over);
+    value = await fish.until("it eats the food dropped over it", (v) => v.flakes.length === 0, 12000);
+    assert.equal(value.leftovers, 0, "every flake dropped over it eaten");
+    assert.deepEqual(await fish.chaseSwitches(), [], "without swinging between flakes");
+    await page.evaluate(() => { fishTank.state = { ...fishTank.state, hunger: 0 }; });
+
     // A long lead is play the whole time: the screen does not dim under it.
     const sweep = (i) => ({ x: geometry.width * (0.3 + 0.4 * ((i % 20) / 19)), y: geometry.surface + 150 });
     await fish.touch("touchStart", [await fish.onScreen(sweep(0))]);
@@ -567,6 +620,7 @@ async function checkTime(browser) {
       assert.equal(value.state.hunger, 1, "a sick fish leaves its food");
       assert.equal(value.leftovers, 7);
       await fish.watchAsks();
+      await fish.watchChase();
       await fish.tap("#fish-water");
       await fish.until("the water is changed", (v) => !v.draining && v.state.dirt < 0.001, 6000);
       // Still getting well, it asks for food, not for the water it just got,
@@ -576,6 +630,7 @@ async function checkTime(browser) {
       await fish.tap("#fish-feed");
       value = await fish.until("and eats again", (v) => v.state.hunger < 1 && v.flakes.length === 0);
       assert.equal(value.leftovers, 0, "every flake eaten");
+      assert.deepEqual(await fish.chaseSwitches(), [], "slow as it is, it kept after each flake");
       // Twenty seconds after the change, with no touch long enough to dim.
       await page.evaluate(() => {
         recordInteraction();

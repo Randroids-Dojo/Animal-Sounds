@@ -555,6 +555,10 @@ const FishTank = (() => {
     let draining = null;
     let followPoint = null;
     let come = null;
+    // The flake it is after, kept until eaten or gone. Always taking the
+    // nearest left it dithering between two flakes on either side of it.
+    let chase = null;
+    let flakeCount = 0;
     let hoverUntil = 0;
     let nextShipBubbles = 0;
     let thoughtShown = "";
@@ -825,10 +829,15 @@ const FishTank = (() => {
         target = come;
         pace = 1.25;
       } else if (eating) {
-        const flake = nearestFlake();
-        // Line the mouth up with the sinking flake, facing it.
+        if (!chase || !flakes.includes(chase)) chase = nearestFlake();
+        const flake = chase;
+        // Line the mouth up with the sinking flake, facing it, from the side
+        // it is on, or from the other side when a wall is in the way.
+        const reach = L * 0.38;
         mouthSide = flake.x >= fish.x ? 1 : -1;
-        target = { x: flake.x - mouthSide * L * 0.38, y: flake.y - L * 0.02 };
+        const from = flake.x - mouthSide * reach;
+        if (from < box.left || from > box.right) mouthSide = -mouthSide;
+        target = { x: flake.x - mouthSide * reach, y: flake.y - L * 0.02 };
         carry = flake.vy;
         pace = 1.2;
       } else {
@@ -1041,11 +1050,12 @@ const FishTank = (() => {
       save(state);
     }
 
-    function feed() {
+    // at is for tests: where in the tank the food drops.
+    function feed(at = null) {
       if (!active || draining) return;
       const L = fish.length;
       // Over the fish when it is hungry, so the food finds it.
-      const x = clamp(look.wantsFood ? fish.x + fish.face * L * 0.6 : geometry.width * (0.25 + random() * 0.5),
+      const x = at ?? clamp(look.wantsFood ? fish.x + fish.face * L * 0.6 : geometry.width * (0.25 + random() * 0.5),
         geometry.width * 0.12, geometry.width * 0.88);
       shaker.style.left = `${x}px`;
       shaker.style.top = `${geometry.surface}px`;
@@ -1062,7 +1072,8 @@ const FishTank = (() => {
         element.style.margin = `${-size / 2}px 0 0 ${-size / 2}px`;
         element.style.background = FLAKE_COLORS[Math.floor(random() * FLAKE_COLORS.length)];
         life.append(element);
-        flakes.push({ element, x: x + (index - 1) * size * 2.2 + (random() - 0.5) * size, y: geometry.surface + 4, vy: 0, age: -index * 0.12, wobble: random() * TAU });
+        flakeCount += 1;
+        flakes.push({ id: flakeCount, element, x: x + (index - 1) * size * 2.2 + (random() - 0.5) * size, y: geometry.surface + 4, vy: 0, age: -index * 0.12, wobble: random() * TAU });
       }
       if (!look.wantsFood && !refusesFood()) {
         // Full: it shakes its head and turns away.
@@ -1226,7 +1237,8 @@ const FishTank = (() => {
         active,
         frames,
         fish: { x: fish.x, y: fish.y, length: fish.length, face: fish.face, mouth: fish.mouth, shaking: fish.shakeUntil > clock },
-        flakes: flakes.map((flake) => ({ x: flake.x, y: flake.y })),
+        flakes: flakes.map((flake) => ({ id: flake.id, x: flake.x, y: flake.y })),
+        chasing: chase && flakes.includes(chase) ? chase.id : null,
         leftovers: leftoverLayer.childElementCount,
         draining: Boolean(draining),
         level: geometry ? waterTop() : 0,

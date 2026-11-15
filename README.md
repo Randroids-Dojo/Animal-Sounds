@@ -451,7 +451,9 @@ counts say nothing about the tablet's frame rate on their own; measure that on
 the device.
 Run `node tests/browser-goldfish.cjs` with the same setup to play the Fish tab
 with real touches: a hungry new fish eats each sprinkle and refuses food once
-full, leftovers cloud the water until Change water appears, and every frame of
+full, keeps after one flake until it has it (food dropped right over it, and
+food by a wall it is pinned against, are both eaten), leftovers cloud the
+water until Change water appears, and every frame of
 the water change keeps the fish under the water line. It checks the fish, ship
 and water taps and their recordings: a hungry fish says it is hungry, a happy
 one that it is happy, a second tap does not cut a line short, and each tap
