@@ -39,10 +39,11 @@ The videos come from this YouTube playlist:
   SVG illustrations in `images/alphabet/`; phrase recordings are in `audio/alphabet/`.
 - Tap the large **Puzzle** tab in the header to open **Animal Puzzle**; tap the
   large **Sounds** tab to return. Swipe navigation is deliberately disabled so
-  dragging a puzzle piece cannot accidentally change pages. When seven labeled
+  dragging a puzzle piece cannot accidentally change pages. When eight labeled
   tabs do not fit in one row, as on a phone, the tabs show their pictures only
-  (the labels remain for screen readers). Tab padding is trimmed so all seven
-  labels still fit the tablet's 800 px portrait width. The title and **Today** timer sit in
+  (the labels remain for screen readers), sized to fit eight across. On the
+  tablet's 800 px portrait width each label sits under its picture; from about
+  880 px wide the labels sit beside them. The title and **Today** timer sit in
   the top grip band, where they take no room from the pages.
   Each round cuts a picture into a 3×3 jigsaw: one of 29 animals, 26
   dinosaurs, 20 foods, or 8 robots. The kinds take turns in a shuffled order,
@@ -152,6 +153,53 @@ The videos come from this YouTube playlist:
     record the missing ones (or pass ids to redo some). It renders two takes,
     checks each with Whisper, and keeps the right one closest to the pitch of
     the other names. The fish and its icons are original artwork.
+- The **Words** tab is a wooden board with a picture and its name etched into
+  the wood, one letter-shaped recess per letter, and the name's plastic
+  letters loose on the table below in a scrambled row. Words are the one-word
+  names of 3 to 6 letters among the animals, foods and robots (35 of them,
+  from Cat and Egg to Banana and Pigeon); short (3 or 4 letters) and long
+  words take turns, starting short, and each word comes up before any repeats
+  (`word-game.js`).
+  - Drag a letter into its recess and it slides in with the puzzle's wooden
+    click, sitting flush in the wood. Either recess takes a letter the word
+    has twice. A letter let go over the wrong recess shakes, sounds a soft
+    low note and slides back down to the table, as does any letter let go
+    over the board. On the table a letter stays where it is put down.
+  - Letters are solid: a carried letter pushes the others out of its way,
+    even when flicked fast, and they knock once as they meet and slide on,
+    then stay quiet while pressed together or against the table's side, even
+    under a trembling finger. A letter let go mid-swipe slides a little way,
+    and a finger put on a sliding letter stops it. A letter coming back down from the board onto
+    another steps aside rather than resting on top of it. They all stay on
+    the table, clear of the grip band; one let go in the band glides back
+    onto the table, and can be caught on the way.
+  - When the last letter seats, the chime plays, the letters hop one after
+    another, and the word is spoken in Randy's voice (the recording its tile
+    uses) once the chime fades. A new word appears 3.4 s after the last
+    letter.
+  - After 8 seconds without a letter seated, the first empty recess glows
+    and a letter that fits it wiggles, and again every 8 seconds.
+  - Touch works as on the puzzle: a contact owns a letter only once it moves
+    like a drag, so a resting palm or still finger blocks nothing; several
+    fingers carry several letters, and a finger cannot take a letter another
+    one carries, nor one knocked out from under it. Unlike the puzzle, the
+    tab turns with the device; the board puts the picture beside the word
+    when the screen is short, and the table is always at least two letters
+    tall. On a very short screen, such as a small phone turned sideways in
+    Chrome, the letters shrink (below the usual smallest size if they must)
+    to keep a table at least one letter tall. Turning as the last letter
+    slides home still celebrates the word.
+  - The tab is cheap to draw. The wood and its recesses are painted once per
+    word into one canvas. Each letter is painted once into three small
+    canvases (lying with its plastic side and a close shadow, lifted with a
+    softer one, and seated), and is only ever moved, never scaled. Motion
+    runs only while something moves, and nothing runs unless the tab is
+    showing and awake. Leaving, dimming, a break or hiding puts a carried
+    letter down where it is; leaving during the celebration cancels the name
+    and brings a new word on return. A carry counts as play every second, so
+    a long one never dims the screen.
+  - Drawing and touches are in `word-board.js`; the letters are the
+    self-hosted Fredoka typeface.
 - The Puzzle tab stays in portrait when the device turns. It requests a native
   orientation lock where supported, and counter-rotates its play surface in
   kiosk WebViews that reject the lock. Piece sizes and completed slots stay
@@ -223,8 +271,9 @@ The videos come from this YouTube playlist:
   taps within 1.5 seconds; tap at a relaxed pace (there is no time limit
   here), and a little in from the very edge if the corner itself does not
   respond.
-- Screen time starts only after an animal-tile tap, a moved puzzle piece, or
-  play in the fish tank (a tap, a lead, Feed or Change water). After 45 seconds
+- Screen time starts only after an animal-tile tap, a moved puzzle piece, a
+  carried letter, or play in the fish tank (a tap, a lead, Feed or Change
+  water). After 45 seconds
   without any of these, the app dims and pauses the clock. The next tap only
   wakes the app; a following tile tap, puzzle move or tank play resumes
   counting. Watching the fish swim does not count.
@@ -437,7 +486,51 @@ a board spanning the screen less 8 px, tray pieces clear of the grip band, and
 pieces that grow when picked up and shrink back where they are put down. It
 also plays twelve rounds to check that kinds take turns, each on its own
 backdrop, and that every picture and recording loads.
-`node --test tests/*.test.js` includes the fish's care rules
+Run `node tests/browser-words.cjs` with the same setup to play the Words tab
+with real touches: the board and letters on five phone and tablet layouts
+(one row of tabs, no label wrapped under its picture, the picture and word on
+the board, letters on the table and clear of the grip band, scrambled), two
+whole words spelled on the tablet and the phone (each letter lifted and kept
+under the finger, a click per letter, one chime, the word's recording once
+after the chime and in full, the next word 3.4 s later, short and long words
+taking turns), a wrong recess (shake, soft note, back to the table), letters
+let go on the board and on the table, pushing and knocking letters against the
+table's side, a thrown letter, two fingers at once and a third that cannot
+take a carried letter, a palm, the grip band (no pickup from it, and a letter
+let go there glides back rather than jumping), and leaving, dimming and hiding
+mid-carry. A minute-long carry must not dim the screen, while a still finger
+must. On a short sideways table, a letter let go on the board above another
+must step aside and settle within 3 s with at most three knocks; turning the
+screen as the last letter seats must still click, chime and bring a new word;
+and a resting finger must not carry a letter knocked out from under it. A
+letter gliding back from the band can be caught. On four very short screens
+(down to 640×280) the letters must lie on the table, clear of the band, and
+come to rest without a sound, and a trembling finger pressing a letter against
+another at the table's side must not make it rattle. Every frame, no loose
+letter may leave the table and no seated letter its recess.
+`ONLY=layout,spell` runs some parts.
+Run `node tests/browser-words-paint.cjs` to count the tab's drawing in a
+trace: a carried letter has its own layer that only translates and is not
+redrawn, nothing else is redrawn while letters are carried and pushed, no
+canvas is painted during play, and frame callbacks stay small with the CPU
+slowed six times. Each check is first shown its fault (letters drawn into the
+page, a scaled carry, the board redrawn, slow motion) and must flag it. The
+header's Today timer is held still during the count; it redraws its strip
+once a second on every tab.
+`node --test tests/*.test.js` includes the word game's rules
+(`tests/word-game.test.js`: which names are words, short and long words
+taking turns, every word laid out on five screens with its letters on the
+table and apart, a table at least two letters tall, scrambled starts,
+pushing, sliding to rest on the table, the glide back from the board, a
+letter landing on another stepping aside with a single knock, no rattle while
+letters stay pressed together (still or under a trembling finger), short
+screens down to 568×180 keeping a table a letter tall whose letters rest
+quietly, a letter resting on the bottom of a table shorter than itself,
+plastic sides clear of the bottom band, starting rows that fit at every
+screen width whatever the scramble, a thin letter flicked fast pushing rather
+than passing through, a held letter never pushing harder than a throw however
+short the frame, and which recess a letter seats in), the fish's
+care rules
 (`tests/goldfish.test.js`), the rings game's rules (`tests/fish-rings.test.js`:
 time per ring, ring size, placement and passing through), and what it says
 (`tests/fish-talk.test.js`: every

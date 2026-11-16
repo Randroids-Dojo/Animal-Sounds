@@ -259,7 +259,7 @@ async function checkLayout(browser, viewport) {
     assert.equal((await fish.debug()).thought, "food", `${label}: the fish asks for food again once let go`);
     assert.deepEqual(escapes, [], `${label}: the thought bubble stays in the water`);
     const { edge, tank, buttons } = layout;
-    assert.ok(layout.oneRow, `${label}: the seven tabs fit in one row`);
+    assert.ok(layout.oneRow, `${label}: the eight tabs fit in one row`);
     assert.deepEqual(layout.clippedTabs, [], `${label}: no tab is clipped`);
     assert.equal(layout.scrolls, false, `${label}: the page does not scroll`);
     for (const box of [tank, ...buttons]) {

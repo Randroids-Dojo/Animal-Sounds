@@ -78,7 +78,7 @@ const VIEWPORTS = [
         lowestPiecePx: Math.round(Math.max(...pieces.map((piece) => piece.top + piece.height))),
         bottomBandPx: play.height - edge,
       };
-      assert.ok(sameRow, `${label}: the seven tabs share one row`);
+      assert.ok(sameRow, `${label}: the eight tabs share one row`);
       assert.deepEqual(layout.clippedTabs, [], `${label}: and every tab fits its picture and label`);
       assert.ok(Math.abs(board.width - (play.width - 2 * MARGIN)) < 1, `${label}: the board spans the screen less ${MARGIN} px: ${board.width}`);
       assert.ok(Math.abs(metrics.marginsPx[0] - metrics.marginsPx[1]) <= 1, `${label}: the board is centered`);

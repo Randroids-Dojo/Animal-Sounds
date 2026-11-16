@@ -71,8 +71,9 @@ const puzzleSuccess = document.getElementById("puzzle-success");
 const puzzleCuts = document.getElementById("puzzle-cuts");
 const puzzleHueRotate = document.getElementById("puzzle-hue-rotate");
 const pageTabs = document.querySelectorAll("[data-page-target]");
-const PAGE_SCREENS = { animals: "animal-screen", puzzle: "puzzle-screen", dinosaurs: "dinosaur-screen", foods: "food-screen", alphabet: "alphabet-screen", lessons: "lessons-screen", fish: "fish-screen" };
+const PAGE_SCREENS = { animals: "animal-screen", puzzle: "puzzle-screen", dinosaurs: "dinosaur-screen", foods: "food-screen", alphabet: "alphabet-screen", lessons: "lessons-screen", fish: "fish-screen", words: "words-screen" };
 const fishTankElement = document.getElementById("fish-tank");
+const wordsScreen = document.getElementById("words-screen");
 let playViewport = { width: 0, height: 0, rotation: 0 };
 
 // Reuse the player for consecutive Sounds taps; release its iframe and
@@ -148,6 +149,7 @@ let fishTalking = false;
 let fishTalkTimer = null;
 // The tank's sounds still playing, so leaving the tank can stop them.
 const fishSoundNodes = new Set();
+let wordBoard = null;
 
 function saveScreenTime() {
   try {
@@ -229,7 +231,7 @@ function showIdleDim(now = Date.now()) {
   releaseMedia();
   audioContext?.suspend();
   idleDim.hidden = false;
-  syncFishTank();
+  syncLiveTabs();
 }
 
 function recordInteraction(now = Date.now()) {
@@ -237,13 +239,13 @@ function recordInteraction(now = Date.now()) {
   lastInteractionAt = now;
   if (!idleDim.hidden) idleDim.hidden = true;
   startCounting(now);
-  syncFishTank();
+  syncLiveTabs();
 }
 
 function wakeIdleScreen(now = Date.now()) {
   lastInteractionAt = now;
   idleDim.hidden = true;
-  syncFishTank();
+  syncLiveTabs();
 }
 
 function consumeWakeEvent(event) {
@@ -353,7 +355,7 @@ function showLimit(now = Date.now()) {
   cancelTileTaps();
   cancelPuzzleDrag();
   stopPlaybackForLimit();
-  syncFishTank();
+  syncLiveTabs();
 }
 
 function lockForBreak(now = Date.now()) {
@@ -442,6 +444,7 @@ async function init() {
   renderAlphabet(await alphabetResponse.json());
   renderLessons();
   createFishTank();
+  createWordBoard();
   // The header's height, which the puzzle layout uses, settles with the font.
   document.fonts?.ready.then(positionPages);
   // A piece's box is its cell plus room for knobs on every side.
@@ -1206,10 +1209,10 @@ function showPage(page) {
     puzzleScreen.classList.remove("puzzle-complete");
     puzzleSuccess.classList.remove("playing");
     puzzleSuccess.hidden = true;
-    if (page !== "fish") audioContext?.suspend();
+    if (page !== "fish" && page !== "words") audioContext?.suspend();
   }
   positionPages();
-  syncFishTank();
+  syncLiveTabs();
   pageTabs.forEach((tab) => {
     tab.setAttribute("aria-pressed", String(tab.dataset.pageTarget === page));
   });
@@ -1232,6 +1235,7 @@ function positionPages() {
   document.body.style.setProperty("--play-width", `${width}px`);
   document.body.style.setProperty("--play-height", `${height}px`);
   if (puzzle && currentPuzzle) layoutPuzzle(document.querySelector(".topbar").offsetHeight);
+  if (document.body.dataset.page === "words") wordBoard?.resize();
 }
 
 // The board spans the portrait play surface less a small margin, and the tray
@@ -1680,22 +1684,27 @@ document.addEventListener("pointermove", (event) => {
   updateTileTap(event);
   movePuzzlePiece(event);
   moveFishFollower(event);
+  wordBoard?.pointerMove(event);
 }, { capture: true });
 document.addEventListener("pointerup", (event) => {
   endTileTap(event);
   endPuzzleDrag(event);
   endFishFollower(event);
+  wordBoard?.pointerEnd(event);
 }, { capture: true });
 document.addEventListener("pointercancel", (event) => {
   endTileTap(event);
   endPuzzleDrag(event);
   endFishFollower(event);
+  wordBoard?.pointerEnd(event);
 }, { capture: true });
 fishTankElement.addEventListener("pointerdown", beginFishFollower);
+wordsScreen.addEventListener("pointerdown", beginWordDrag);
 pageTabs.forEach((tab) => {
   tab.addEventListener("click", () => showPage(tab.dataset.pageTarget));
 });
 document.addEventListener("lostpointercapture", (event) => {
+  wordBoard?.lostCapture(event);
   const candidate = puzzleDragCandidates.get(event.pointerId);
   if (candidate && event.target === candidate.piece) puzzleDragCandidates.delete(event.pointerId);
   const drag = puzzleDrags.get(event.pointerId);
@@ -1721,7 +1730,7 @@ document.addEventListener("visibilitychange", () => {
     releaseMedia();
     audioContext?.suspend();
     stopCounting();
-    syncFishTank();
+    syncLiveTabs();
   } else if (timeLimit.hidden) showIdleDim();
 });
 
@@ -1850,9 +1859,14 @@ function endFishFollower(event) {
 
 let noiseBuffer = null;
 
-// Short, quiet tank sounds, made on the spot like the puzzle's click.
+// Short, quiet sounds, made on the spot like the puzzle's click.
 function fishTone(type, from, to, duration, volume, delay = 0) {
-  if (!puzzleAudio()) return;
+  const oscillator = tone(type, from, to, duration, volume, delay);
+  if (oscillator) trackFishSound(oscillator);
+}
+
+function tone(type, from, to, duration, volume, delay = 0) {
+  if (!puzzleAudio()) return null;
   const start = audioContext.currentTime + delay;
   const oscillator = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -1865,7 +1879,7 @@ function fishTone(type, from, to, duration, volume, delay = 0) {
   oscillator.connect(gain).connect(audioContext.destination);
   oscillator.start(start);
   oscillator.stop(start + duration + 0.02);
-  trackFishSound(oscillator);
+  return oscillator;
 }
 
 function fishNoise(duration, volume, { delay = 0, filter = "lowpass", frequency = 800, q = 1, wobble = 0 } = {}) {
@@ -1940,6 +1954,67 @@ const fishSounds = {
   best: () => [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => fishTone("sine", frequency, frequency, 0.3, 0.08, 0.35 + index * 0.12)),
   drain: () => fishNoise(1.3, 0.09, { filter: "lowpass", frequency: 700, wobble: 9 }),
   fill: () => fishNoise(1.6, 0.06, { filter: "bandpass", frequency: 1600, q: 0.7 }),
+};
+
+// ---------- Words ----------
+
+function createWordBoard() {
+  // Some animals have two videos; each is still one word.
+  const pictures = [...animals, ...foods, ...robots];
+  wordBoard = WordBoard.create({
+    screen: wordsScreen,
+    words: WordGame.wordsFrom(pictures),
+    band: safeEdge,
+    dragSlop: DRAG_SLOP_PX,
+    touchLimits,
+    sound: wordSounds,
+    // The puzzle's chime, then the word in Randy's voice once it fades.
+    celebrate: (name) => {
+      playSuccessChime();
+      speakAfter(PUZZLE_NAME_DELAY_MS, name);
+    },
+    preload: (name) => { voiceClip(voicePath(name)).preload = "auto"; },
+    played: () => recordInteraction(),
+    reducedMotion,
+  });
+}
+
+// The board animates only while it is on screen and awake.
+function syncWordBoard() {
+  if (!wordBoard) return;
+  const showing = document.body.dataset.page === "words" && idleDim.hidden && timeLimit.hidden
+    && overlay.hidden && !document.hidden;
+  if (showing) wordBoard.activate();
+  else wordBoard.deactivate();
+}
+
+function syncLiveTabs() {
+  syncFishTank();
+  syncWordBoard();
+}
+
+function beginWordDrag(event) {
+  if (event.pointerType !== "touch" && event.pointerType !== "mouse") return;
+  if (event.button !== 0 || document.body.dataset.page !== "words" || !idleDim.hidden || !timeLimit.hidden) return;
+  if (inSafeArea(event.clientX, event.clientY)) return;
+  wordBoard?.pointerDown(event);
+}
+
+const wordSounds = {
+  // Plastic picked up off the table.
+  pickup: () => {
+    tone("triangle", 1250, 900, 0.04, 0.035);
+  },
+  // Plastic knocking plastic, louder the harder they hit.
+  bump: (volume) => {
+    const pitch = 640 + Math.random() * 160;
+    tone("triangle", pitch, pitch * 0.6, 0.05, volume);
+    tone("sine", pitch * 2.4, pitch * 1.8, 0.025, volume * 0.35);
+  },
+  // The puzzle's wooden click as a letter slots in.
+  seat: playSnapSound,
+  // A soft, low "no" for the wrong slot.
+  miss: () => tone("triangle", 330, 220, 0.18, 0.06),
 };
 
 init();

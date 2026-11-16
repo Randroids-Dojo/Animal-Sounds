@@ -199,7 +199,8 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   min-height: 54px;
   border: 2px solid rgba(59, 53, 96, 0.14);
   border-radius: 999px;
-  /* Narrow enough that seven labels fit the tablet's 800 px portrait width. */
+  /* Narrow, so labels fit beside their pictures on screens from about
+     880 px wide. */
   padding: 10px 3px;
   background: rgba(255, 255, 255, 0.5);
   color: var(--ink);
@@ -211,14 +212,17 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
   background: var(--cream);
 }
 
-/* Too narrow for seven labels in one row, as on a phone: show the pictures
+/* Too narrow for eight labels in one row, as on a phone: show the pictures
    only. The labels stay for screen readers. */
 @container (max-width: 690px) {
   #page-tabs { gap: 4px; }
 
+  /* As large as eight pictures can be in the row, up to 1.6rem: a tab is
+     12.5cqw less its share of the gaps, then its border. Android's emoji
+     are about 1.25 times as wide as their font size. */
   #page-tabs button {
     padding: 6px 0;
-    font-size: 1.6rem;
+    font-size: min(1.6rem, calc((12.5cqw - 3.5px - 6px) / 1.3));
   }
 
   #page-tabs .tab-label {
@@ -227,6 +231,27 @@ body[data-page="puzzle"] #safe-area > div { background: none; }
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* Eight labels beside their pictures need a tab bar about 780 px wide; on
+   the tablet's 800 px portrait screen it is 704 px, so there each label
+   goes under its picture. */
+@container (min-width: 691px) and (max-width: 790px) {
+  #page-tabs button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+
+  #page-tabs .tab-label {
+    font-size: 0.82rem;
     white-space: nowrap;
   }
 }
@@ -1293,6 +1318,112 @@ body[data-page="fish"] #pages { height: 100%; }
     border-radius: 24px;
   }
   .fish-button img { width: 44px; height: 44px; }
+}
+
+/* ---------- Words ---------- */
+
+/* A fixed play surface like the puzzle and the tank, so dragging a letter
+   never scrolls or pans the page. */
+body[data-page="words"] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: var(--play-height);
+  overflow: hidden;
+}
+
+body[data-page="words"] #page-viewport { min-height: 0; }
+body[data-page="words"] #pages { height: 100%; }
+/* The board takes no touches, so it may reach under the band, as on the
+   puzzle; the band shows the table through it. */
+body[data-page="words"] #safe-area > div { background: none; }
+
+/* word-board.js places everything here from word-game.js's layout. */
+#words-screen {
+  position: relative;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+  touch-action: none;
+  background: linear-gradient(175deg, var(--sky) 0%, #EAF3EC 55%, #F6EBD9 100%);
+}
+
+#words-screen[hidden],
+#words-screen[inert] { display: none; }
+
+/* The plank's edge and its shadow on the table. */
+.words-board {
+  position: absolute;
+  display: block;
+  box-shadow: 0 6px 0 #B47B42, 0 12px 18px rgba(59, 53, 96, 0.16);
+}
+
+.words-picture {
+  position: absolute;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* A warm light over the slot a hint points at. Its own layer for good, so
+   showing it never redraws the board. */
+.words-glow {
+  position: absolute;
+  border-radius: 32%;
+  background: radial-gradient(closest-side, rgba(255, 251, 222, 0.95), rgba(255, 238, 160, 0.55) 65%, rgba(255, 238, 160, 0));
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.words-glow.showing { animation: words-glow 2.6s ease-in-out; }
+
+@keyframes words-glow {
+  0% { opacity: 0; }
+  20% { opacity: 0.95; }
+  45% { opacity: 0.35; }
+  70% { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+/* Letters are found by position, not by hit-testing, so none take touches. */
+.words-table {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Each letter sits at its glyph's center and is only ever translated. */
+.word-letter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.word-letter.seated { z-index: 1; }
+.word-letter.held { z-index: 4; }
+
+.word-letter-art {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: rotate 0.14s ease-out;
+}
+
+.word-letter-art > canvas {
+  position: absolute;
+  display: none;
+}
+
+.word-letter[data-look="rest"] .word-letter-rest,
+.word-letter[data-look="lifted"] .word-letter-lifted,
+.word-letter[data-look="seated"] .word-letter-seated { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .word-letter-art { transition: none; }
+  .words-glow.showing { animation: none; opacity: 0.8; }
 }
 
 @media (prefers-reduced-motion: reduce) {

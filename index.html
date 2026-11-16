@@ -21,6 +21,8 @@
   <script defer src="fish-talk.js"></script>
   <script defer src="fish-rings.js"></script>
   <script defer src="fish-tank.js"></script>
+  <script defer src="word-game.js"></script>
+  <script defer src="word-board.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body data-page="animals">
@@ -38,6 +40,7 @@
       <button type="button" data-page-target="lessons" aria-pressed="false">🌱 <span class="tab-label">Lessons</span></button>
       <button type="button" data-page-target="puzzle" aria-pressed="false">🧩 <span class="tab-label">Puzzle</span></button>
       <button type="button" data-page-target="fish" aria-pressed="false">🐠 <span class="tab-label">Fish</span></button>
+      <button type="button" data-page-target="words" aria-pressed="false">🅰️ <span class="tab-label">Words</span></button>
     </nav>
   </header>
 
@@ -198,6 +201,15 @@
           <button type="button" id="fish-feed" class="fish-button"><img src="images/fish/feed.svg" alt=""><span>Feed</span></button>
           <button type="button" id="fish-water" class="fish-button" hidden><img src="images/fish/water.svg" alt=""><span>Change water</span></button>
         </div>
+      </section>
+      <section id="words-screen" class="app-screen" aria-label="Spell a word" hidden inert>
+        <!-- word-board.js paints the wood and its etched word once per word,
+             and moves the plastic letters over it. -->
+        <h2 class="words-name visually-hidden"></h2>
+        <canvas class="words-board" aria-hidden="true"></canvas>
+        <img class="words-picture" alt="">
+        <div class="words-glow" aria-hidden="true"></div>
+        <div class="words-table" aria-label="Letters"></div>
       </section>
     </div>
   </div>

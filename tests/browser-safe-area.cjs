@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 
 const W = 800;
 const H = 1340;
-const PAGES = ["animals", "dinosaurs", "foods", "alphabet", "lessons", "puzzle", "fish"];
+const PAGES = ["animals", "dinosaurs", "foods", "alphabet", "lessons", "puzzle", "fish", "words"];
 
 (async () => {
   const browser = await chromium.launch({ channel: "chrome", headless: true });
