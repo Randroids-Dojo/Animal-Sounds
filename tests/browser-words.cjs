@@ -203,6 +203,12 @@ async function checkLayout(browser) {
     for (const word of ["OWL", "CHEESE", "PIGEON", "BANANA"]) {
       await words.force(word);
       await words.settled();
+      // Forced words skip the preloading the next word gets; over the
+      // network the picture can take a moment.
+      await page.waitForFunction(() => {
+        const picture = document.querySelector(".words-picture");
+        return picture.complete && picture.naturalWidth > 0;
+      }, null, { timeout: 5000 }).catch(() => {});
       const state = await words.debug();
       const label = `${viewport.label} ${word}`;
       const shown = await page.evaluate(() => {
