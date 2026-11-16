@@ -36,6 +36,19 @@ function seeded(seed) {
 }
 
 const free = (overrides) => ({ vx: 0, vy: 0, mode: "free", pause: 0, ...overrides });
+// The loose letters for a word: its own, then extras. With no seed, the
+// widest extras possible, which need the most room on the table.
+function loose(word, seed) {
+  const extras = seed === undefined
+    ? [...WordGame.extraLetters(word, () => 0)].map(() => null)
+    : WordGame.extraLetters(word, seeded(seed));
+  if (seed === undefined) {
+    const width = (char) => metrics[char].left + metrics[char].right;
+    const widest = Object.keys(metrics).filter((char) => !word.includes(char)).sort((a, b) => width(b) - width(a));
+    extras.splice(0, extras.length, ...widest.slice(0, extras.length));
+  }
+  return { chars: [...word], letters: [...word, ...extras] };
+}
 const box = (x, y, size = 40) => free({ x, y, hx: size / 2, hy: size / 2, r: size * 0.35 });
 const overlapping = (bodies) => bodies.some((a, i) => bodies.some((b, j) => j > i && WordGame.contact(a, b)?.depth > 0.5));
 
@@ -73,11 +86,29 @@ test("short and long words take turns, starting short, and each comes up before 
   for (const group of [shortDeals, longDeals]) group.forEach((entry, index) => index && assert.notEqual(entry, group[index - 1]));
 });
 
+test("extra letters: three for a short word, two for a long one, none in the word, none twice", () => {
+  for (const { word } of words) {
+    for (let seed = 0; seed < 30; seed += 1) {
+      const extras = WordGame.extraLetters(word, seeded(seed));
+      assert.equal(extras.length, word.length <= 4 ? 3 : 2, word);
+      assert.equal(new Set(extras).size, extras.length, `${word}: ${extras}`);
+      for (const char of extras) {
+        assert.match(char, /^[A-Z]$/);
+        assert.ok(!word.includes(char), `${word}: ${char} is not in the word`);
+      }
+    }
+  }
+  // Over many rounds every letter not in the word turns up.
+  const seen = new Set();
+  for (let seed = 0; seed < 400; seed += 1) WordGame.extraLetters("CAT", seeded(seed)).forEach((char) => seen.add(char));
+  assert.equal(seen.size, 23);
+});
+
 test("every word fits every screen: board on screen, letters big and on the table", () => {
   for (const screen of SCREENS) {
     for (const { word } of words) {
-      const chars = [...word];
-      const geometry = WordGame.layout({ ...screen, band: BAND, metrics, chars });
+      const { chars, letters } = loose(word);
+      const geometry = WordGame.layout({ ...screen, band: BAND, metrics, chars, letters });
       const label = `${screen.label} ${word}`;
       const { board, picture, slots, arena, font } = geometry;
       assert.ok(font >= WordGame.MIN_FONT, `${label}: font ${font}`);
@@ -92,7 +123,8 @@ test("every word fits every screen: board on screen, letters big and on the tabl
       slots.slice(1).forEach((slot, index) => assert.ok(slot.x - slot.hx > slots[index].x + slots[index].hx, `${label}: recesses apart`));
       assert.ok(arena.top >= board.y + board.height, `${label}: the table is below the board`);
       assert.ok(arena.left >= BAND && arena.right <= screen.width - BAND && arena.bottom <= screen.height - BAND, `${label}: the table clears the band`);
-      const placed = WordGame.scatter(chars, metrics, geometry, seeded(word.length));
+      const placed = WordGame.scatter(letters, metrics, geometry, seeded(word.length), chars.length);
+      assert.equal(placed.length, letters.length, `${label}: every letter, extras too`);
       for (const body of placed) {
         assert.ok(body.x - body.hx >= arena.left && body.x + body.hx <= arena.right, `${label}: ${body.char} on the table`);
         assert.ok(body.y - body.hy >= arena.top && body.y + body.hy <= arena.bottom, `${label}: ${body.char} on the table`);
@@ -105,15 +137,16 @@ test("every word fits every screen: board on screen, letters big and on the tabl
   }
 });
 
-test("the letters start scrambled, never in the word's own order", () => {
+test("the letters start scrambled: read in order, the word's own letters never spell it", () => {
   const geometry = WordGame.layout({ width: 800, height: 1227, band: BAND, metrics, chars: [..."CAT"] });
   for (const { word } of words) {
-    const chars = [...word];
-    const fit = WordGame.layout({ width: 800, height: 1227, band: BAND, metrics, chars });
     for (let seed = 0; seed < 40; seed += 1) {
-      const placed = WordGame.scatter(chars, metrics, fit, seeded(seed));
-      assert.notEqual(placed.map((body) => body.char).join(""), word, `${word} seed ${seed}`);
-      assert.deepEqual(placed.map((body) => body.index).sort((a, b) => a - b), chars.map((_, index) => index), `${word}: each letter once`);
+      const { chars, letters } = loose(word, seed);
+      const fit = WordGame.layout({ width: 800, height: 1227, band: BAND, metrics, chars, letters });
+      const placed = WordGame.scatter(letters, metrics, fit, seeded(seed), chars.length);
+      const own = placed.filter((body) => body.index < chars.length).map((body) => body.char).join("");
+      assert.notEqual(own, word, `${word} seed ${seed}`);
+      assert.deepEqual(placed.map((body) => body.index).sort((a, b) => a - b), letters.map((_, index) => index), `${word}: each letter once`);
     }
   }
   assert.equal(geometry.slots.map((slot) => slot.char).join(""), "CAT");
@@ -278,9 +311,9 @@ test("a thin letter flicked fast pushes the others rather than passing through",
 test("the table is always at least two letters tall", () => {
   for (const screen of SCREENS) {
     for (const { word } of words) {
-      const chars = [...word];
-      const geometry = WordGame.layout({ ...screen, band: BAND, metrics, chars });
-      const tallest = Math.max(...chars.map((char) => 2 * WordGame.letterBody(metrics[char], geometry.font).hy));
+      const { chars, letters } = loose(word);
+      const geometry = WordGame.layout({ ...screen, band: BAND, metrics, chars, letters });
+      const tallest = Math.max(...letters.map((char) => 2 * WordGame.letterBody(metrics[char], geometry.font).hy));
       assert.ok(geometry.arena.bottom - geometry.arena.top >= 2 * tallest, `${screen.label} ${word}: ${Math.round(geometry.arena.bottom - geometry.arena.top)} px for ${Math.round(tallest)} px letters`);
     }
   }
@@ -316,12 +349,12 @@ test("short screens keep a table at least one letter tall, and their letters com
   for (const width of [568, 640, 740, 780, 800, 900, 960]) {
     for (const height of [180, 210, 240, 270, 290, 300, 330]) {
       for (const word of ["CAT", "PIZZA", "BANANA"]) {
-        const chars = [...word];
-        const geometry = WordGame.layout({ width, height, band: BAND, metrics, chars });
+        const { chars, letters } = loose(word);
+        const geometry = WordGame.layout({ width, height, band: BAND, metrics, chars, letters });
         const label = `${width}x${height} ${word}`;
-        const tallest = Math.max(...chars.map((char) => 2 * WordGame.letterBody(metrics[char], geometry.font).hy));
+        const tallest = Math.max(...letters.map((char) => 2 * WordGame.letterBody(metrics[char], geometry.font).hy));
         assert.ok(geometry.arena.bottom - geometry.arena.top >= tallest, `${label}: a table ${Math.round(geometry.arena.bottom - geometry.arena.top)} px tall for ${Math.round(tallest)} px letters`);
-        const bodies = WordGame.scatter(chars, metrics, geometry, seeded(width + height)).map((body) => free(body));
+        const bodies = WordGame.scatter(letters, metrics, geometry, seeded(width + height), chars.length).map((body) => free(body));
         let knocks = 0;
         let steps = 0;
         while (WordGame.unsettled(bodies, geometry.arena) && steps < 600) {
@@ -338,7 +371,7 @@ test("short screens keep a table at least one letter tall, and their letters com
 test("a letter's plastic side stays clear of the bottom grip band", () => {
   for (const screen of SCREENS) {
     for (const { word } of words) {
-      const geometry = WordGame.layout({ ...screen, band: BAND, metrics, chars: [...word] });
+      const geometry = WordGame.layout({ ...screen, band: BAND, metrics, ...loose(word) });
       assert.ok(geometry.arena.bottom + WordGame.DEPTH * geometry.font <= screen.height - BAND + 0.01, `${screen.label} ${word}`);
     }
   }
@@ -348,10 +381,10 @@ test("on every screen width, the starting rows fit the table whatever the scramb
   for (let width = 320; width <= 1400; width += 8) {
     for (const height of [360, 800]) {
       for (const { word } of words) {
-        const chars = [...word];
-        const geometry = WordGame.layout({ width, height, band: BAND, metrics, chars });
         for (let seed = 0; seed < 3; seed += 1) {
-          const placed = WordGame.scatter(chars, metrics, geometry, seeded(seed + width));
+          const { chars, letters } = seed ? loose(word, seed + width) : loose(word);
+          const geometry = WordGame.layout({ width, height, band: BAND, metrics, chars, letters });
+          const placed = WordGame.scatter(letters, metrics, geometry, seeded(seed + width), chars.length);
           const label = `${width}x${height} ${word} seed ${seed}`;
           assert.equal(overlapping(placed.map((body) => free(body))), false, `${label}: letters start apart`);
           for (const body of placed) {

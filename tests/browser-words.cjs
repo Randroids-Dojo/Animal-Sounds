@@ -255,9 +255,13 @@ async function checkLayout(browser) {
         assert.ok(letter.y - letter.hy >= arena.top - 0.5, `${label}: ${letter.char} on the table, below the board`);
         assert.ok(2 * letter.hy >= 34, `${label}: ${letter.char} is ${Math.round(2 * letter.hy)} px tall`);
       }
-      // Read as a child would: row by row, each from left to right.
+      const extras = state.letters.filter((letter) => letter.extra);
+      assert.equal(extras.length, word.length <= 4 ? 3 : 2, `${label}: extra letters`);
+      assert.ok(extras.every((letter) => !word.includes(letter.char)), `${label}: extras are not in the word`);
+      // Read as a child would: row by row, each from left to right. The
+      // word's own letters never spell it in that order.
       const rows = [];
-      for (const letter of [...state.letters].sort((a, b) => a.y - b.y)) {
+      for (const letter of state.letters.filter((other) => !other.extra).sort((a, b) => a.y - b.y)) {
         const row = rows.find((other) => Math.abs(other[0].y - letter.y) < letter.hy);
         if (row) row.push(letter);
         else rows.push([letter]);
@@ -323,6 +327,9 @@ async function checkSpelling(browser, viewport) {
     }
     const done = await words.debug();
     assert.equal(done.done, true, `${label}: the word is done`);
+    const extras = done.letters.filter((letter) => letter.extra);
+    assert.equal(extras.length, start.word.length <= 4 ? 3 : 2, `${label}: with its extra letters`);
+    assert.ok(extras.every((letter) => letter.mode === "free"), `${label}: still loose on the table`);
     const heard = await words.sounds();
     assert.equal(heard.filter((name) => name === "seat").length, start.slots.length, `${label}: one click per letter: ${heard}`);
     assert.equal(heard.filter((name) => name === "chime").length, 1, `${label}: one chime`);
@@ -350,6 +357,7 @@ async function checkSpelling(browser, viewport) {
     const gap = nextAt - completedAt;
     assert.ok(gap >= 3300 && gap <= 4200, `${label}: the next word comes about 3.4 s later: ${Math.round(gap)} ms`);
     assert.ok(next.letters.every((letter) => letter.mode === "free") && next.slots.every((slot) => !slot.filled), `${label}: the board is reset`);
+    assert.equal(next.letters.length, next.word.length + (next.word.length <= 4 ? 3 : 2), `${label}: the new word has its extras`);
     rounds.push({ word: start.word, next: next.word, nameMs: Math.round(startedMs), clipMs: Math.round(ended.t - started.t), nextMs: Math.round(gap) });
     await page.screenshot({ path: path.join(evidence, `spell-${label}-${round}.png`) });
   }
@@ -387,6 +395,18 @@ async function checkWrong(browser) {
   assert.ok(back.y - back.hy >= state.geometry.arena.top - 0.5, "it slides back to the table");
   assert.ok(state.slots.every((slot) => !slot.filled), "the slot stays empty");
 
+  // An extra letter fits no recess at all.
+  await words.clearSounds();
+  const extra = state.letters.find((letter) => letter.extra);
+  const target = state.slots.find((slot) => !slot.filled);
+  await words.carry(extra, words.toScreen(state, target));
+  state = await words.settled();
+  const turnedAway = state.letters.find((letter) => letter.index === extra.index);
+  assert.equal(turnedAway.mode, "free", "an extra letter does not seat");
+  assert.ok(turnedAway.y - turnedAway.hy >= state.geometry.arena.top - 0.5, "it goes back to the table");
+  assert.equal((await words.sounds()).filter((name) => name === "miss").length, 1, "with the soft no");
+  assert.ok(state.slots.every((slot) => !slot.filled), "and the recess stays empty");
+
   // Let go over the picture: back to the table, without the "no".
   await words.clearSounds();
   const n = words.letterFor(state, "N");
@@ -420,18 +440,26 @@ async function checkBump(browser) {
   await words.settled();
   await words.clearSounds();
   let state = await words.debug();
-  // Two letters on the same row: push the left one through the right one.
-  const pairs = state.letters.flatMap((a) => state.letters.filter((b) => b.x > a.x && Math.abs(b.y - a.y) < a.hy).map((b) => [a, b]));
-  const [pusher, target] = pairs.sort((p, q) => (p[1].x - p[0].x) - (q[1].x - q[0].x))[0];
+  // Push the lowest letter down into the open table below it, coming at it
+  // from above with another letter. (Pushed into a crowded row pinned
+  // against the table's side, a letter can only be squeezed past.)
+  const target = [...state.letters].sort((a, b) => b.y - a.y)[0];
+  const pusher = state.letters.find((letter) => letter.index !== target.index && Math.abs(letter.y - target.y) > target.hy);
   const from = words.toScreen(state, pusher);
-  const through = words.toScreen(state, { x: target.x + 1.2 * (target.hx + pusher.hx), y: target.y });
+  const above = words.toScreen(state, { x: target.x, y: target.y - target.hy - pusher.hy - 30 });
   await words.press(1, from);
-  await words.glide(1, words.line(from, through, 24));
+  await words.glide(1, words.line(from, above, 16));
+  await wait(100);
+  state = await words.debug();
+  const before = state.letters.find((letter) => letter.index === target.index);
+  await words.clearSounds();
+  const through = { x: above.x, y: words.toScreen(state, before).y + 1.2 * (before.hy + pusher.hy) };
+  await words.glide(1, words.line(above, through, 16));
   const pushed = (await words.debug()).letters.find((letter) => letter.index === target.index);
-  assert.ok(pushed.x - target.x > 30 || Math.abs(pushed.y - target.y) > 30, `the pushed letter moves out of the way: ${JSON.stringify([target.x, pushed.x, target.y, pushed.y])}`);
+  assert.ok(pushed.y - before.y > 30, `the pushed letter moves out of the way: ${JSON.stringify([before.x, pushed.x, before.y, pushed.y])}`);
   assert.ok((await words.sounds()).includes("bump"), "and knocks audibly");
   // Shove everything into the left side of the table.
-  const wall = words.toScreen(state, { x: state.geometry.arena.left + pusher.hx, y: target.y });
+  const wall = words.toScreen(state, { x: state.geometry.arena.left + pusher.hx, y: through.y - state.origin.top });
   await words.glide(1, words.line(through, wall, 30), 12);
   await words.lift(1);
   state = await words.settled();
@@ -763,10 +791,8 @@ async function checkStack(browser) {
     await words.carry(first, words.toScreen(state, front));
     state = await words.settled();
     const below = state.letters.find((letter) => letter.index === first.index);
-    // Drop the letter whose own recess is farthest away, so it cannot seat.
-    const slotX = (letter) => state.slots.find((slot) => slot.char === letter.char).x;
-    const top = state.letters.filter((letter) => letter.index !== first.index)
-      .sort((a, b) => Math.abs(slotX(b) - below.x) - Math.abs(slotX(a) - below.x))[0];
+    // Drop a letter that cannot seat there: an extra, which fits nowhere.
+    const top = state.letters.find((letter) => letter.extra);
     const over = { x: below.x + [0, 4, -8][attempt % 3], y: Math.min(board.y + board.height - 6, arena.top - top.hy - 4) };
     await words.carry(top, words.toScreen(state, over));
     // Only what happens after it is let go: the carry up to the board may

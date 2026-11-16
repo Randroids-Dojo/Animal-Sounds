@@ -154,8 +154,11 @@ The videos come from this YouTube playlist:
     checks each with Whisper, and keeps the right one closest to the pitch of
     the other names. The fish and its icons are original artwork.
 - The **Words** tab is a wooden board with a picture and its name etched into
-  the wood, one letter-shaped recess per letter, and the name's plastic
-  letters loose on the table below in a scrambled row. Words are the one-word
+  the wood, one letter-shaped recess per letter, and plastic letters loose on
+  the table below in scrambled rows: the name's own letters and a few extra
+  ones that are not in it (three for a 3 or 4 letter word, two for a longer
+  one, different each round), so the last letter is never simply the one left
+  over. Read in order, the name's own letters never spell it. Words are the one-word
   names of 3 to 6 letters among the animals, foods and robots (35 of them,
   from Cat and Egg to Banana and Pigeon); short (3 or 4 letters) and long
   words take turns, starting short, and each word comes up before any repeats
@@ -163,8 +166,9 @@ The videos come from this YouTube playlist:
   - Drag a letter into its recess and it slides in with the puzzle's wooden
     click, sitting flush in the wood. Either recess takes a letter the word
     has twice. A letter let go over the wrong recess shakes, sounds a soft
-    low note and slides back down to the table, as does any letter let go
-    over the board. On the table a letter stays where it is put down.
+    low note and slides back down to the table, as does an extra letter on
+    any recess and any letter let go over the board. On the table a letter
+    stays where it is put down.
   - Letters are solid: a carried letter pushes the others out of its way,
     even when flicked fast, and they knock once as they meet and slide on,
     then stay quiet while pressed together or against the table's side, even
@@ -173,10 +177,10 @@ The videos come from this YouTube playlist:
     another steps aside rather than resting on top of it. They all stay on
     the table, clear of the grip band; one let go in the band glides back
     onto the table, and can be caught on the way.
-  - When the last letter seats, the chime plays, the letters hop one after
-    another, and the word is spoken in Randy's voice (the recording its tile
-    uses) once the chime fades. A new word appears 3.4 s after the last
-    letter.
+  - When the last recess is filled, the chime plays, the seated letters hop
+    one after another while the extras stay on the table, and the word is
+    spoken in Randy's voice (the recording its tile uses) once the chime
+    fades. A new word appears 3.4 s after the last letter.
   - After 8 seconds without a letter seated, the first empty recess glows
     and a letter that fits it wiggles, and again every 8 seconds.
   - Touch works as on the puzzle: a contact owns a letter only once it moves
@@ -489,11 +493,13 @@ backdrop, and that every picture and recording loads.
 Run `node tests/browser-words.cjs` with the same setup to play the Words tab
 with real touches: the board and letters on five phone and tablet layouts
 (one row of tabs, no label wrapped under its picture, the picture and word on
-the board, letters on the table and clear of the grip band, scrambled), two
-whole words spelled on the tablet and the phone (each letter lifted and kept
-under the finger, a click per letter, one chime, the word's recording once
-after the chime and in full, the next word 3.4 s later, short and long words
-taking turns), a wrong recess (shake, soft note, back to the table), letters
+the board, letters on the table and clear of the grip band, the right number
+of extras and none from the word, the word's letters scrambled), two whole
+words spelled on the tablet and the phone (each letter lifted and kept under
+the finger, a click per letter, done with the extras still loose, one chime,
+the word's recording once after the chime and in full, the next word 3.4 s
+later with its own extras, short and long words taking turns), a wrong recess
+and an extra letter on a recess (shake, soft note, back to the table), letters
 let go on the board and on the table, pushing and knocking letters against the
 table's side, a thrown letter, two fingers at once and a third that cannot
 take a carried letter, a palm, the grip band (no pickup from it, and a letter
@@ -519,7 +525,9 @@ header's Today timer is held still during the count; it redraws its strip
 once a second on every tab.
 `node --test tests/*.test.js` includes the word game's rules
 (`tests/word-game.test.js`: which names are words, short and long words
-taking turns, every word laid out on five screens with its letters on the
+taking turns, the extra letters (how many, none from the word, none twice,
+every other letter turning up), every word laid out on five screens with its
+widest possible extras and its letters on the
 table and apart, a table at least two letters tall, scrambled starts,
 pushing, sliding to rest on the table, the glide back from the board, a
 letter landing on another stepping aside with a single knock, no rattle while

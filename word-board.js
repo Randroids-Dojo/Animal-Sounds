@@ -415,12 +415,12 @@ const WordBoard = (() => {
           if (letter.slide) endSlide(letter);
         });
       }
-      metrics = metricsFor(round.chars);
+      metrics = metricsFor(round.loose);
       const before = geometry;
-      geometry = WordGame.layout({ width: rect.width, height: rect.height, band: band(), metrics, chars: round.chars });
+      geometry = WordGame.layout({ width: rect.width, height: rect.height, band: band(), metrics, chars: round.chars, letters: round.loose });
       geometry.slots.forEach((slot, index) => { slot.filled = Boolean(round.slots[index]?.filled); });
       round.slots = geometry.slots;
-      const start = fresh ? WordGame.scatter(round.chars, metrics, geometry, random) : null;
+      const start = fresh ? WordGame.scatter(round.loose, metrics, geometry, random, round.chars.length) : null;
       round.letters.forEach((letter) => {
         Object.assign(letter.body, WordGame.letterBody(metrics[letter.char], geometry.font));
         if (letter.slot) {
@@ -480,9 +480,11 @@ const WordBoard = (() => {
       upcoming = WordGame.nextWord(deck);
       new Image().src = upcoming.image;
       preload(entry.name);
+      // The word's letters, then a few that are not in it.
       const chars = [...entry.word];
+      const loose = [...chars, ...WordGame.extraLetters(entry.word, random)];
       const colors = shuffle(COLORS, random);
-      round = { entry, chars, slots: [], letters: chars.map((char, index) => createLetter(char, index, colors[index % colors.length])), done: false };
+      round = { entry, chars, loose, slots: [], letters: loose.map((char, index) => createLetter(char, index, colors[index % colors.length])), done: false };
       heading.textContent = `Spell ${entry.name}`;
       picture.src = entry.image;
       picture.style.filter = entry.hue ? `hue-rotate(${entry.hue}deg)` : "";
@@ -580,7 +582,8 @@ const WordBoard = (() => {
       letter.element.classList.add("seated");
       writePosition(letter);
       if (!quiet) sound.seat();
-      if (round.slots.every((slot) => slot.filled) && round.letters.every((other) => other.body.mode === "seated")) finish(quiet);
+      // Done when every recess is filled; the extra letters stay on the table.
+      if (round.slots.every((slot) => slot.filled) && round.letters.every((other) => other.body.mode !== "seating")) finish(quiet);
     }
 
     function seat(letter, slot) {
@@ -607,7 +610,7 @@ const WordBoard = (() => {
       if (quiet) return;
       celebrate(round.entry.name);
       if (!reducedMotion()) {
-        [...round.letters].sort((a, b) => a.slot.index - b.slot.index).forEach((letter, index) => letter.art.animate(
+        round.letters.filter((letter) => letter.slot).sort((a, b) => a.slot.index - b.slot.index).forEach((letter, index) => letter.art.animate(
           [
             { transform: "none" },
             { transform: `translateY(${-0.32 * geometry.font}px) rotate(${index % 2 ? 6 : -6}deg)`, offset: 0.4 },
@@ -620,7 +623,7 @@ const WordBoard = (() => {
           { transform: "scale(1.12) rotate(-5deg)", offset: 0.3 },
           { transform: "scale(1.08) rotate(5deg)", offset: 0.6 },
           { transform: "none" },
-        ], { duration: 900, delay: 300 + round.letters.length * 120, easing: "ease-in-out" });
+        ], { duration: 900, delay: 300 + round.chars.length * 120, easing: "ease-in-out" });
       }
     }
 
@@ -976,6 +979,7 @@ const WordBoard = (() => {
         letters: round ? round.letters.map((letter) => ({
           index: letter.index,
           char: letter.char,
+          extra: letter.index >= round.chars.length,
           look: letter.look,
           tilt: letter.tilt,
           slot: letter.slot?.index ?? null,

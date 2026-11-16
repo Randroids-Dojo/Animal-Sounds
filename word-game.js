@@ -12,6 +12,11 @@
 const WordGame = (() => {
   const MIN_LETTERS = 3;
   const MAX_LETTERS = 6;
+  // Letters on the table that are not in the word, so the last one is not
+  // simply the one left over: more for a short word, fewer for a long one.
+  const EXTRA_SHORT = 3;
+  const EXTRA_LONG = 2;
+  const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   // A plastic letter is its glyph fattened by this much on every side, and
   // this thick, both as fractions of the font size.
   const FATTEN = 0.012;
@@ -96,6 +101,13 @@ const WordGame = (() => {
     return deck.last[index];
   }
 
+  // The extra letters for a word: different from each other and from every
+  // letter in the word, so each recess still takes only its own letter.
+  function extraLetters(word, random = Math.random) {
+    const count = word.length <= 4 ? EXTRA_SHORT : EXTRA_LONG;
+    return shuffle([...ALPHABET].filter((char) => !word.includes(char)), random).slice(0, count);
+  }
+
   // metrics[char] is the glyph's ink box at a font size of 1: left and right
   // of the pen position, ascent above and descent below the baseline.
   function inkSize(metric, font) {
@@ -153,16 +165,19 @@ const WordGame = (() => {
   }
 
   // Lays out the board and the table for one word on a screen of this size.
-  // band is the grip band's width: loose letters must stay clear of it so
-  // they can always be picked up. The largest letters that fit win, with the
-  // picture over the word when there is the height, or beside it otherwise.
-  function layout({ width, height, band, metrics, chars }) {
+  // chars are the word's letters, etched on the board; letters are all the
+  // loose ones on the table, the word's and the extras (the word's alone if
+  // left out). band is the grip band's width: loose letters must stay clear
+  // of it so they can always be picked up. The largest letters that fit win,
+  // with the picture over the word when there is the height, or beside it
+  // otherwise.
+  function layout({ width, height, band, metrics, chars, letters = chars }) {
     const capHeight = Math.max(...chars.map((char) => metrics[char].ascent));
     const descent = Math.max(0, ...chars.map((char) => metrics[char].descent));
     // The width caps the size; the table's room for the letters, checked
     // below, caps it on short screens.
     const top = Math.min(MAX_FONT, width * 0.21, height * 0.3);
-    const fit = { width, height, band, metrics, chars, capHeight, descent };
+    const fit = { width, height, band, metrics, chars, letters, capHeight, descent };
     for (let font = Math.floor(top); font >= MIN_FONT; font -= 2) {
       for (const arrangement of ["stacked", "side"]) {
         const found = tryLayout({ ...fit, font, arrangement });
@@ -180,7 +195,7 @@ const WordGame = (() => {
     return tryLayout({ ...fit, font: SMALLEST_FONT, arrangement: "side", short: true, force: true });
   }
 
-  function tryLayout({ width, height, band, metrics, chars, font, capHeight, descent, arrangement, short = false, force = false }) {
+  function tryLayout({ width, height, band, metrics, chars, letters, font, capHeight, descent, arrangement, short = false, force = false }) {
     const pad = clamp(Math.round(0.2 * font), short ? 6 : 10, 28);
     const room = (FATTEN + CLEARANCE) * font;
     const rowHeight = (capHeight + descent) * font + 2 * room;
@@ -197,13 +212,13 @@ const WordGame = (() => {
     // thickness, which is drawn below a letter's outline.
     const arena = { left: band, right: width - band, top: board.y + board.height + 0.3 * font, bottom: height - band - DEPTH * font };
 
-    const bodies = chars.map((char) => letterBody(metrics[char], font));
+    const bodies = letters.map((char) => letterBody(metrics[char], font));
     const list = listRows(bodies, arena, font);
     // Room for the list, and for the letters to be moved about around it.
     const tallest = Math.max(...bodies.map((body) => 2 * body.hy));
     const tableHeight = arena.bottom - arena.top;
-    if (!force && !short && (list.height + 2 * list.gap > tableHeight || tableHeight < TABLE_ROWS * tallest || list.rows.length > 2)) return null;
-    if (!force && short && (list.height > tableHeight || tableHeight < SHORT_TABLE_ROWS * tallest || list.rows.length > 3)) return null;
+    if (!force && !short && (list.height + 2 * list.gap > tableHeight || tableHeight < TABLE_ROWS * tallest || list.rows.length > 3)) return null;
+    if (!force && short && (list.height > tableHeight || tableHeight < SHORT_TABLE_ROWS * tallest || list.rows.length > 4)) return null;
 
     const left = board.x + (board.width - inner) / 2 + (stacked ? 0 : picture + pad);
     const rowTop = stacked ? board.y + pad + picture + 0.5 * pad : board.y + (board.height - rowHeight) / 2;
@@ -221,18 +236,20 @@ const WordGame = (() => {
     };
   }
 
-  // The letters' starting places, a scrambled list on the table: their order
-  // is never the word's own when another order exists. Each letter is
-  // nudged and tilted a little, as if just tipped out of a box.
-  function scatter(chars, metrics, geometry, random = Math.random) {
+  // The letters' starting places, a scrambled list on the table. letters
+  // are the word's letters followed by any extras; read in order, the
+  // word's own letters never spell it when another order exists. Each
+  // letter is nudged and tilted a little, as if just tipped out of a box.
+  function scatter(letters, metrics, geometry, random = Math.random, wordLength = letters.length) {
     const { font, arena } = geometry;
-    const word = chars.join("");
-    let order = chars.map((_, index) => index);
+    const word = letters.slice(0, wordLength).join("");
+    const spells = (order) => order.filter((index) => index < wordLength).map((index) => letters[index]).join("") === word;
+    let order = letters.map((_, index) => index);
     for (let tries = 0; tries < 30; tries += 1) {
-      order = shuffle(chars.map((_, index) => index), random);
-      if (order.map((index) => chars[index]).join("") !== word) break;
+      order = shuffle(letters.map((_, index) => index), random);
+      if (!spells(order)) break;
     }
-    const bodies = order.map((index) => ({ index, char: chars[index], ...letterBody(metrics[chars[index]], font) }));
+    const bodies = order.map((index) => ({ index, char: letters[index], ...letterBody(metrics[letters[index]], font) }));
     const { rows, gap, rowHeight, height } = listRows(bodies, arena, font);
     const middle = arena.top + (arena.bottom - arena.top) * 0.42;
     const firstRow = clamp(middle - height / 2, arena.top + gap / 2, arena.bottom - height - gap / 2);
@@ -503,6 +520,7 @@ const WordGame = (() => {
   return {
     MIN_LETTERS,
     MAX_LETTERS,
+    extraLetters,
     FATTEN,
     DEPTH,
     CLEARANCE,
