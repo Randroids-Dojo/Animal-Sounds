@@ -22,8 +22,10 @@ const WordBoard = (() => {
   const GRAB_MARGIN = 14;
   // A letter let go off the table glides back on in this time.
   const PLACE_MS = 150;
-  // From the last letter seating to the next word.
+  // From the chime to the next word.
   const NEXT_WORD_MS = 3400;
+  // A breath between the last letter's name and the chime.
+  const AFTER_LETTER_MS = 120;
   // How long without a letter seated before the next one is pointed out.
   const HINT_MS = 8000;
   const HINT_SHOW_MS = 2600;
@@ -482,6 +484,7 @@ const WordBoard = (() => {
       preload(entry.name);
       // The word's letters, then a few that are not in it.
       const chars = [...entry.word];
+      sound.preloadLetters([...new Set(chars)]);
       const loose = [...chars, ...WordGame.extraLetters(entry.word, random)];
       const colors = shuffle(COLORS, random);
       round = { entry, chars, loose, slots: [], letters: loose.map((char, index) => createLetter(char, index, colors[index % colors.length])), done: false };
@@ -581,9 +584,14 @@ const WordBoard = (() => {
       setLook(letter, "seated");
       letter.element.classList.add("seated");
       writePosition(letter);
-      if (!quiet) sound.seat();
+      // The click, and the letter's name in Randy's voice.
+      let said = 0;
+      if (!quiet) {
+        sound.seat();
+        said = sound.letter(letter.char);
+      }
       // Done when every recess is filled; the extra letters stay on the table.
-      if (round.slots.every((slot) => slot.filled) && round.letters.every((other) => other.body.mode !== "seating")) finish(quiet);
+      if (round.slots.every((slot) => slot.filled) && round.letters.every((other) => other.body.mode !== "seating")) finish(quiet, said);
     }
 
     function seat(letter, slot) {
@@ -597,17 +605,24 @@ const WordBoard = (() => {
       scheduleHint();
     }
 
-    function finish(quiet) {
+    // said: how long the last letter's name takes, in seconds. The chime
+    // and the word wait for it, so nothing talks over the letter.
+    function finish(quiet, said = 0) {
       round.done = true;
       stopHint();
       candidates.clear();
       // Away from the tab, the next word waits for the return instead.
-      if (active) {
+      if (!active) return;
+      finishTimer = setTimeout(() => {
+        if (!active) return;
+        if (!quiet) cheer();
         finishTimer = setTimeout(() => {
           if (active) newRound();
         }, NEXT_WORD_MS);
-      }
-      if (quiet) return;
+      }, quiet || !said ? 0 : Math.round(said * 1000) + AFTER_LETTER_MS);
+    }
+
+    function cheer() {
       celebrate(round.entry.name);
       if (!reducedMotion()) {
         round.letters.filter((letter) => letter.slot).sort((a, b) => a.slot.index - b.slot.index).forEach((letter, index) => letter.art.animate(
@@ -922,6 +937,7 @@ const WordBoard = (() => {
       if (!active) return;
       cancelDrags();
       active = false;
+      sound.stopLetter();
       cancelAnimationFrame(frame);
       frame = null;
       clearTimeout(finishTimer);

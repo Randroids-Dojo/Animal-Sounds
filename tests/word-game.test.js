@@ -409,3 +409,10 @@ test("a letter on a table shorter than itself rests on the bottom rather than ra
   assert.ok(knocks <= 2, `with a knock at most: ${knocks}`);
   for (const body of bodies) assert.equal(body.y + body.hy, arena.bottom, "on the bottom");
 });
+
+test("every letter has a recording of its name", () => {
+  for (const char of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+    const file = path.join(root, `audio/letters/${char.toLowerCase()}.mp3`);
+    assert.ok(fs.existsSync(file) && fs.statSync(file).size > 2000, `${char}: ${file}`);
+  }
+});

@@ -1312,6 +1312,7 @@ function releaseClip(clip) {
 
 function releaseMedia() {
   stopSpeech();
+  stopLetter();
   closePlayer();
   const oldPlayer = player;
   player = null;
@@ -2015,6 +2016,91 @@ const wordSounds = {
   seat: playSnapSound,
   // A soft, low "no" for the wrong slot.
   miss: () => tone("triangle", 330, 220, 0.18, 0.06),
+  // The letter's name, just after the click; returns how long it takes.
+  letter: (char) => sayLetter(char),
+  preloadLetters: (chars) => chars.forEach(loadLetter),
+  stopLetter: () => stopLetter(),
 };
+
+// ---------- Letter names ----------
+// The Words tab says each letter's name as it seats. The 26 recordings in
+// audio/letters/ (scripts/build-letter-voice.py) are decoded once each and
+// played through Web Audio, so a name starts with the click and neither
+// waits behind nor cuts off the word's own name.
+const LETTER_AFTER_CLICK_S = 0.06;
+const letterBuffers = new Map();
+let letterVoice = null;
+// The last few names played, for checks: when each started, how long it
+// is, and whether it was cut off.
+const letterVoices = [];
+
+function loadLetter(char) {
+  if (!letterBuffers.has(char)) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const entry = { buffer: null, loading: null };
+    letterBuffers.set(char, entry);
+    if (!AudioContext) entry.loading = Promise.resolve(null);
+    else {
+      // Decoding works while the context is still waiting for a touch.
+      audioContext ||= new AudioContext();
+      const context = audioContext;
+      entry.loading = fetch(`audio/letters/${char.toLowerCase()}.mp3`)
+        .then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(`No recording of ${char}`))))
+        .then((data) => context.decodeAudioData(data))
+        .then((buffer) => {
+          entry.buffer = buffer;
+          return buffer;
+        })
+        .catch(() => {
+          // Try again next time it is wanted.
+          letterBuffers.delete(char);
+          return null;
+        });
+    }
+  }
+  return letterBuffers.get(char);
+}
+
+function stopLetter() {
+  if (!letterVoice) return;
+  const voice = letterVoice;
+  letterVoice = null;
+  voice.cut = performance.now() < voice.endsAt;
+  try { voice.source.stop(); } catch (_) { /* Already ended. */ }
+}
+
+function playLetter(char, buffer) {
+  const context = puzzleAudio();
+  if (!context) return;
+  stopLetter();
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(context.destination);
+  const voice = { char, source, startedAt: performance.now() + LETTER_AFTER_CLICK_S * 1000, duration: buffer.duration, cut: false };
+  voice.endsAt = voice.startedAt + buffer.duration * 1000;
+  source.onended = () => {
+    voice.endedAt = performance.now();
+    if (letterVoice === voice) letterVoice = null;
+  };
+  source.start(context.currentTime + LETTER_AFTER_CLICK_S);
+  letterVoice = voice;
+  letterVoices.push(voice);
+  if (letterVoices.length > 30) letterVoices.shift();
+}
+
+// Returns about how long the name takes, so the board can wait for it.
+function sayLetter(char) {
+  const entry = loadLetter(char);
+  if (entry.buffer) {
+    playLetter(char, entry.buffer);
+    return LETTER_AFTER_CLICK_S + entry.buffer.duration;
+  }
+  // Still loading, as on a very first round: say it if it comes in time.
+  const asked = performance.now();
+  entry.loading.then((buffer) => {
+    if (buffer && performance.now() - asked < 400 && wordBoard?.active) playLetter(char, buffer);
+  });
+  return 0.6;
+}
 
 init();

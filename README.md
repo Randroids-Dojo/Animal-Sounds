@@ -164,7 +164,8 @@ The videos come from this YouTube playlist:
   words take turns, starting short, and each word comes up before any repeats
   (`word-game.js`).
   - Drag a letter into its recess and it slides in with the puzzle's wooden
-    click, sitting flush in the wood. Either recess takes a letter the word
+    click, sitting flush in the wood, and Randy says the letter's name
+    ("Bee", "Double-you", "Zee"). Either recess takes a letter the word
     has twice. A letter let go over the wrong recess shakes, sounds a soft
     low note and slides back down to the table, as does an extra letter on
     any recess and any letter let go over the board. On the table a letter
@@ -177,10 +178,23 @@ The videos come from this YouTube playlist:
     another steps aside rather than resting on top of it. They all stay on
     the table, clear of the grip band; one let go in the band glides back
     onto the table, and can be caught on the way.
-  - When the last recess is filled, the chime plays, the seated letters hop
-    one after another while the extras stay on the table, and the word is
-    spoken in Randy's voice (the recording its tile uses) once the chime
-    fades. A new word appears 3.4 s after the last letter.
+  - When the last recess is filled and its letter's name has been said, the
+    chime plays, the seated letters hop one after another while the extras
+    stay on the table, and the word is spoken in Randy's voice (the
+    recording its tile uses) once the chime fades. A new word appears 3.4 s
+    after the chime.
+  - The 26 letter names are recordings in `audio/letters/`, made and
+    checked by `scripts/build-letter-voice.py` (run it with the
+    ChannelKnowledgeBase venv: `record [letters]` to redo some, `check` to
+    test them all). Each is spoken from its American name in CMU phonemes
+    with `eleven_flash_v2`, since plain text came out as "uh" for A and
+    "eye" for "Ay". A take is kept only when two Whisper models
+    (large-v3-turbo and large-v3) both hear the right letter between two
+    other letters and on its own, and `check` also plays all 26 in four
+    random orders, where both models must hear every letter in its place.
+    The names are trimmed to start right away, levelled to the other
+    recordings, decoded once each and played through Web Audio just after
+    the click, so they never wait behind or cut off other speech.
   - After 8 seconds without a letter seated, the first empty recess glows
     and a letter that fits it wiggles, and again every 8 seconds.
   - Touch works as on the puzzle: a contact owns a letter only once it moves
@@ -496,9 +510,11 @@ with real touches: the board and letters on five phone and tablet layouts
 the board, letters on the table and clear of the grip band, the right number
 of extras and none from the word, the word's letters scrambled), two whole
 words spelled on the tablet and the phone (each letter lifted and kept under
-the finger, a click per letter, done with the extras still loose, one chime,
-the word's recording once after the chime and in full, the next word 3.4 s
-later with its own extras, short and long words taking turns), a wrong recess
+the finger, a click per letter with that letter's name said with it and to
+its end, done with the extras still loose, one chime only after the last
+name has finished, the word's recording once after the chime and in full,
+the next word 3.4 s after the chime with its own extras, short and long
+words taking turns), a wrong recess
 and an extra letter on a recess (shake, soft note, back to the table), letters
 let go on the board and on the table, pushing and knocking letters against the
 table's side, a thrown letter, two fingers at once and a third that cannot
@@ -537,7 +553,8 @@ quietly, a letter resting on the bottom of a table shorter than itself,
 plastic sides clear of the bottom band, starting rows that fit at every
 screen width whatever the scramble, a thin letter flicked fast pushing rather
 than passing through, a held letter never pushing harder than a throw however
-short the frame, and which recess a letter seats in), the fish's
+short the frame, which recess a letter seats in, and a recording for every
+letter's name), the fish's
 care rules
 (`tests/goldfish.test.js`), the rings game's rules (`tests/fish-rings.test.js`:
 time per ring, ring size, placement and passing through), and what it says

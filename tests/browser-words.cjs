@@ -140,15 +140,20 @@ async function openWords(browser, viewport = TABLET) {
   await page.evaluate(() => {
     // Log the board's sounds by name; they still play.
     window.sounds = [];
+    // The same, with when each was heard and what it was given.
+    window.soundLog = [];
     for (const [name, make] of Object.entries(wordSounds)) {
+      if (name === "preloadLetters" || name === "stopLetter") continue;
       wordSounds[name] = (...args) => {
         window.sounds.push(name);
+        window.soundLog.push({ name, arg: args[0], t: performance.now() });
         return make(...args);
       };
     }
     const chime = playSuccessChime;
     window.playSuccessChime = () => {
       window.sounds.push("chime");
+      window.soundLog.push({ name: "chime", t: performance.now() });
       chime();
     };
     // Every frame: loose letters stay on the table, seated ones in their
@@ -286,6 +291,8 @@ async function checkSpelling(browser, viewport) {
   for (let round = 0; round < 2; round += 1) {
     const start = await words.debug();
     await words.clearSounds();
+    const roundFrom = await page.evaluate(() => { window.soundLog.length = 0; return performance.now(); });
+    const seatedChars = [];
     // Letters in a shuffled order of slots, not left to right.
     const order = [...start.slots].sort((a, b) => ((a.index * 7 + 3) % start.slots.length) - ((b.index * 7 + 3) % start.slots.length));
     let completedAt = null;
@@ -322,6 +329,7 @@ async function checkSpelling(browser, viewport) {
       if (step === order.length - 1) completedAt = await page.evaluate(() => performance.now());
       const after = await words.until(`${label}: the ${slot.char} seats`, (value) => value.letters.find((other) => other.index === letter.index).mode === "seated");
       const seated = after.letters.find((other) => other.index === letter.index);
+      seatedChars.push(seated.char);
       assert.equal(seated.slot, slot.index, `${label}: in the slot it was dropped on`);
       assert.equal(seated.look, "seated");
     }
@@ -332,8 +340,30 @@ async function checkSpelling(browser, viewport) {
     assert.ok(extras.every((letter) => letter.mode === "free"), `${label}: still loose on the table`);
     const heard = await words.sounds();
     assert.equal(heard.filter((name) => name === "seat").length, start.slots.length, `${label}: one click per letter: ${heard}`);
-    assert.equal(heard.filter((name) => name === "chime").length, 1, `${label}: one chime`);
     assert.equal(heard.filter((name) => name === "miss").length, 0, `${label}: no wrong-slot sound`);
+
+    // Each letter's name as it seats, right after its click, in full, and
+    // the chime only once the last name has finished.
+    await page.waitForFunction(() => window.soundLog.some((entry) => entry.name === "chime"), null, { timeout: 4000 });
+    const sounds = await page.evaluate(() => window.soundLog.slice());
+    assert.equal(sounds.filter((entry) => entry.name === "chime").length, 1, `${label}: one chime`);
+    const said = sounds.filter((entry) => entry.name === "letter");
+    const clicks = sounds.filter((entry) => entry.name === "seat");
+    assert.deepEqual(said.map((entry) => entry.arg), seatedChars, `${label}: every letter's name, in the order they seat`);
+    said.forEach((entry, index) => assert.ok(Math.abs(entry.t - clicks[index].t) < 30, `${label}: ${entry.arg} is said with its click`));
+    const voices = await page.evaluate((from) => letterVoices.filter((voice) => voice.startedAt >= from)
+      .map(({ char, startedAt, duration, endsAt, endedAt, cut }) => ({ char, startedAt, duration, endsAt, endedAt, cut })), roundFrom);
+    assert.deepEqual(voices.map((voice) => voice.char), seatedChars, `${label}: from the letter recordings`);
+    for (const voice of voices) {
+      assert.equal(voice.cut, false, `${label}: ${voice.char} is not cut short`);
+      assert.ok(voice.duration > 0.25 && voice.duration < 1.4, `${label}: ${voice.char} is a short name: ${voice.duration}`);
+    }
+    const chimeAt = sounds.find((entry) => entry.name === "chime").t;
+    const lastName = voices.at(-1);
+    assert.ok(chimeAt >= lastName.endsAt - 20, `${label}: the chime waits for the last letter's name: ${Math.round(chimeAt - lastName.endsAt)} ms after it`);
+    assert.ok(chimeAt <= lastName.endsAt + 400, `${label}: but not long: ${Math.round(chimeAt - lastName.endsAt)} ms`);
+    assert.ok(lastName.endedAt && lastName.endedAt <= chimeAt + 60, `${label}: the last name has ended by the chime`);
+    completedAt = chimeAt;
 
     // The word in Randy's voice, once the chime fades, in full.
     const clip = `audio/${start.name.toLowerCase()}.mp3`;
@@ -352,10 +382,10 @@ async function checkSpelling(browser, viewport) {
     assert.deepEqual(cut, [], `${label}: the word is not cut short`);
     assert.ok(ended, `${label}: the word plays to its end`);
     const startedMs = started.t - completedAt;
-    assert.ok(startedMs >= 650 && startedMs <= 1200, `${label}: the word follows the chime: ${Math.round(startedMs)} ms`);
+    assert.ok(startedMs >= 650 && startedMs <= 1000, `${label}: the word follows the chime: ${Math.round(startedMs)} ms`);
     assert.ok(ended.t < nextAt, `${label}: and ends before the next word`);
     const gap = nextAt - completedAt;
-    assert.ok(gap >= 3300 && gap <= 4200, `${label}: the next word comes about 3.4 s later: ${Math.round(gap)} ms`);
+    assert.ok(gap >= 3300 && gap <= 4200, `${label}: the next word comes about 3.4 s after the chime: ${Math.round(gap)} ms`);
     assert.ok(next.letters.every((letter) => letter.mode === "free") && next.slots.every((slot) => !slot.filled), `${label}: the board is reset`);
     assert.equal(next.letters.length, next.word.length + (next.word.length <= 4 ? 3 : 2), `${label}: the new word has its extras`);
     rounds.push({ word: start.word, next: next.word, nameMs: Math.round(startedMs), clipMs: Math.round(ended.t - started.t), nextMs: Math.round(gap) });
