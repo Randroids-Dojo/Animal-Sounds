@@ -2026,10 +2026,15 @@ const wordSounds = {
 // The Words tab says each letter's name as it seats. The 26 recordings in
 // audio/letters/ (scripts/build-letter-voice.py) are decoded once each and
 // played through Web Audio, so a name starts with the click and neither
-// waits behind nor cuts off the word's own name.
+// waits behind nor cuts off the word's own name. Letters seated in quick
+// succession are named one after another, each in full.
 const LETTER_AFTER_CLICK_S = 0.06;
+const LETTER_GAP_S = 0.05;
 const letterBuffers = new Map();
-let letterVoice = null;
+// Names playing or waiting their turn, and when the last of them ends (in
+// the audio context's time).
+const letterQueue = new Set();
+let letterQueueEnd = 0;
 // The last few names played, for checks: when each started, how long it
 // is, and whether it was cut off.
 const letterVoices = [];
@@ -2061,40 +2066,47 @@ function loadLetter(char) {
   return letterBuffers.get(char);
 }
 
+// Leaving the tab, dimming or a break silences every name, playing or
+// waiting.
 function stopLetter() {
-  if (!letterVoice) return;
-  const voice = letterVoice;
-  letterVoice = null;
-  voice.cut = performance.now() < voice.endsAt;
-  try { voice.source.stop(); } catch (_) { /* Already ended. */ }
+  const now = performance.now();
+  letterQueue.forEach((voice) => {
+    voice.cut = now < voice.endsAt;
+    try { voice.source.stop(); } catch (_) { /* Already ended. */ }
+  });
+  letterQueue.clear();
+  letterQueueEnd = 0;
 }
 
+// Plays a name right after the click, or after the name before it.
+// Returns how many seconds from now it will have finished.
 function playLetter(char, buffer) {
   const context = puzzleAudio();
-  if (!context) return;
-  stopLetter();
+  if (!context) return 0;
+  const start = Math.max(context.currentTime + LETTER_AFTER_CLICK_S, letterQueueEnd + LETTER_GAP_S);
   const source = context.createBufferSource();
   source.buffer = buffer;
   source.connect(context.destination);
-  const voice = { char, source, startedAt: performance.now() + LETTER_AFTER_CLICK_S * 1000, duration: buffer.duration, cut: false };
+  const wait = start - context.currentTime;
+  const voice = { char, source, startedAt: performance.now() + wait * 1000, duration: buffer.duration, cut: false };
   voice.endsAt = voice.startedAt + buffer.duration * 1000;
   source.onended = () => {
     voice.endedAt = performance.now();
-    if (letterVoice === voice) letterVoice = null;
+    letterQueue.delete(voice);
   };
-  source.start(context.currentTime + LETTER_AFTER_CLICK_S);
-  letterVoice = voice;
+  source.start(start);
+  letterQueueEnd = start + buffer.duration;
+  letterQueue.add(voice);
   letterVoices.push(voice);
   if (letterVoices.length > 30) letterVoices.shift();
+  return wait + buffer.duration;
 }
 
-// Returns about how long the name takes, so the board can wait for it.
+// Returns about how long until the name is finished, so the board can wait
+// for it.
 function sayLetter(char) {
   const entry = loadLetter(char);
-  if (entry.buffer) {
-    playLetter(char, entry.buffer);
-    return LETTER_AFTER_CLICK_S + entry.buffer.duration;
-  }
+  if (entry.buffer) return playLetter(char, entry.buffer);
   // Still loading, as on a very first round: say it if it comes in time.
   const asked = performance.now();
   entry.loading.then((buffer) => {

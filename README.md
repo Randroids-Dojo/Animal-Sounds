@@ -194,7 +194,9 @@ The videos come from this YouTube playlist:
     random orders, where both models must hear every letter in its place.
     The names are trimmed to start right away, levelled to the other
     recordings, decoded once each and played through Web Audio just after
-    the click, so they never wait behind or cut off other speech.
+    the click, so they never wait behind or cut off other speech. Letters
+    seated in quick succession, as with two hands, are named one after
+    another, each in full.
   - After 8 seconds without a letter seated, the first empty recess glows
     and a letter that fits it wiggles, and again every 8 seconds.
   - Touch works as on the puzzle: a contact owns a letter only once it moves
@@ -519,7 +521,8 @@ and an extra letter on a recess (shake, soft note, back to the table), letters
 let go on the board and on the table, pushing and knocking letters against the
 table's side, a thrown letter, two fingers at once and a third that cannot
 take a carried letter, a palm, the grip band (no pickup from it, and a letter
-let go there glides back rather than jumping), and leaving, dimming and hiding
+let go there glides back rather than jumping), two letters seated at once with
+two fingers (both named in full, one after the other), and leaving, dimming and hiding
 mid-carry. A minute-long carry must not dim the screen, while a still finger
 must. On a short sideways table, a letter let go on the board above another
 must step aside and settle within 3 s with at most three knocks; turning the

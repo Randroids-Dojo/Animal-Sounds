@@ -20,8 +20,10 @@
 // letter knocked out from under it. Very short screens still give the
 // letters a table to rest on quietly, and a trembling finger pressing
 // letters against the table's side does not rattle.
+// Two letters seated at once with two fingers are both named in full, one
+// after the other.
 // ONLY=layout,spell,wrong,bump,throw,fingers,palm,band,life,stack,turn,knocked,
-// short,tremble runs some parts.
+// short,tremble,quick runs some parts.
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -354,10 +356,14 @@ async function checkSpelling(browser, viewport) {
     const voices = await page.evaluate((from) => letterVoices.filter((voice) => voice.startedAt >= from)
       .map(({ char, startedAt, duration, endsAt, endedAt, cut }) => ({ char, startedAt, duration, endsAt, endedAt, cut })), roundFrom);
     assert.deepEqual(voices.map((voice) => voice.char), seatedChars, `${label}: from the letter recordings`);
-    for (const voice of voices) {
+    voices.forEach((voice, index) => {
       assert.equal(voice.cut, false, `${label}: ${voice.char} is not cut short`);
       assert.ok(voice.duration > 0.25 && voice.duration < 1.4, `${label}: ${voice.char} is a short name: ${voice.duration}`);
-    }
+      // Right after its click, or right after the name before it.
+      const earliest = Math.max(said[index].t + 60, index ? voices[index - 1].endsAt + 50 : 0);
+      assert.ok(Math.abs(voice.startedAt - earliest) < 40, `${label}: ${voice.char} starts as soon as it can: ${Math.round(voice.startedAt - earliest)} ms late`);
+      if (index) assert.ok(voice.startedAt >= voices[index - 1].endsAt, `${label}: ${voice.char} does not talk over ${voices[index - 1].char}`);
+    });
     const chimeAt = sounds.find((entry) => entry.name === "chime").t;
     const lastName = voices.at(-1);
     assert.ok(chimeAt >= lastName.endsAt - 20, `${label}: the chime waits for the last letter's name: ${Math.round(chimeAt - lastName.endsAt)} ms after it`);
@@ -843,6 +849,42 @@ async function checkStack(browser) {
   return results;
 }
 
+// Two letters seated at almost the same moment, with two fingers: both
+// names are said in full, one after the other.
+async function checkQuick(browser) {
+  const words = await openWords(browser, TABLET);
+  const { page } = words;
+  await words.force("HORSE");
+  let state = await words.settled();
+  const [first, second] = ["H", "R"].map((char) => words.letterFor(state, char));
+  const [slotA, slotB] = ["H", "R"].map((char) => state.slots.find((slot) => slot.char === char));
+  const from = [words.toScreen(state, first), words.toScreen(state, second)];
+  const to = [words.toScreen(state, slotA), words.toScreen(state, slotB)];
+  const since = await page.evaluate(() => performance.now());
+  await words.press(1, from[0]);
+  await words.press(2, from[1]);
+  const paths = [words.line(from[0], to[0], 12), words.line(from[1], to[1], 12)];
+  for (let i = 0; i < 12; i += 1) {
+    await words.shift(1, paths[0][i]);
+    await words.shift(2, paths[1][i]);
+    await wait(16);
+  }
+  await wait(60);
+  await words.lift(1);
+  await words.lift(2);
+  await wait(2500);
+  state = await words.debug();
+  assert.equal(state.slots.filter((slot) => slot.filled).length, 2, "both letters seat");
+  const voices = await page.evaluate((from) => letterVoices.filter((voice) => voice.startedAt >= from)
+    .map(({ char, startedAt, endsAt, endedAt, cut }) => ({ char, startedAt, endsAt, endedAt, cut })), since);
+  assert.deepEqual(voices.map((voice) => voice.char).sort(), ["H", "R"], "both names are said");
+  assert.ok(voices.every((voice) => !voice.cut && voice.endedAt), `both in full: ${JSON.stringify(voices)}`);
+  assert.ok(voices[1].startedAt >= voices[0].endsAt, `one after the other: ${Math.round(voices[1].startedAt - voices[0].endsAt)} ms apart`);
+  assert.ok(voices[1].startedAt - voices[0].endsAt < 120, "with only a short pause between");
+  assert.deepEqual(words.errors, []);
+  await words.context.close();
+}
+
 // The screen turns while the last letter is still sliding into its slot:
 // it seats with its click, the word is celebrated and a new one follows.
 async function checkTurn(browser) {
@@ -989,6 +1031,7 @@ async function checkTremble(browser) {
     if (runs("life")) await checkLifecycle(browser);
     if (runs("stack")) report.stack = await checkStack(browser);
     if (runs("turn")) await checkTurn(browser);
+    if (runs("quick")) await checkQuick(browser);
     if (runs("knocked")) await checkKnocked(browser);
     if (runs("short")) report.short = await checkShort(browser);
     if (runs("tremble")) await checkTremble(browser);
